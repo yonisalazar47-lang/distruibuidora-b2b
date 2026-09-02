@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Administración - Distribuidora</title>
+    <title>Panel de Administración - Distribuidora Don Vitorio</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librerías para exportar a Excel y PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-6">
 
@@ -12,7 +16,7 @@
     <div id="modal-login" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full space-y-4">
             <h2 class="text-xl font-bold text-gray-800 text-center">Acceso Administrador</h2>
-            <p class="text-xs text-gray-500 text-center">Ingresa la clave secreta para gestionar el sistema.</p>
+            <p class="text-xs text-gray-500 text-center">Distribuidora Don Vitorio</p>
             <form onsubmit="verificarClave(event)" class="space-y-4">
                 <input type="password" id="admin-pass" placeholder="Contraseña" required class="w-full p-2 border rounded-md focus:ring focus:ring-blue-300">
                 <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 font-medium">Ingresar</button>
@@ -29,10 +33,58 @@
         
         <!-- Cabecera -->
         <div class="bg-white shadow rounded-lg p-6 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Panel de Administración B2B</h1>
+            <h1 class="text-2xl font-bold text-gray-800">Panel de Administración - Distribuidora Don Vitorio</h1>
             <div class="space-x-4">
                 <a href="vendedor.html" class="text-green-600 hover:underline font-medium">Portal Vendedores</a>
                 <a href="index.html" class="text-blue-600 hover:underline font-medium">Ir a la Tienda</a>
+            </div>
+        </div>
+
+        <!-- SECCIÓN: REPORTES DE VENTAS (Mes y Año con Filtros y Exportación) -->
+        <div class="bg-white shadow rounded-lg p-6 space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 class="text-xl font-bold text-gray-800">Reporte de Ventas y Estadísticas</h2>
+                <div class="flex items-center gap-2">
+                    <select id="filtro-anio" onchange="calcularReportes()" class="p-2 border rounded-md text-sm bg-gray-50 font-medium">
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                    <select id="filtro-mes" onchange="calcularReportes()" class="p-2 border rounded-md text-sm bg-gray-50 font-medium">
+                        <option value="todos">Todo el año</option>
+                        <option value="01">Enero</option>
+                        <option value="02">Febrero</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Mayo</option>
+                        <option value="06">Junio</option>
+                        <option value="07">Julio</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div>
+                    <p class="text-xs text-blue-600 font-bold uppercase">Total Facturado en el Periodo</p>
+                    <p id="stat-total-dinero" class="text-3xl font-extrabold text-blue-900">$0.00</p>
+                </div>
+                <div>
+                    <p class="text-xs text-blue-600 font-bold uppercase">Cantidad de Pedidos</p>
+                    <p id="stat-total-pedidos" class="text-3xl font-extrabold text-blue-900">0</p>
+                </div>
+            </div>
+
+            <!-- Botones de Exportación -->
+            <div class="flex justify-end space-x-3 pt-2">
+                <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-1 shadow-sm">
+                    📊 Exportar a Excel
+                </button>
+                <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-1 shadow-sm">
+                    📄 Exportar a PDF
+                </button>
             </div>
         </div>
 
@@ -113,6 +165,7 @@
                     <thead>
                         <tr class="bg-gray-200 text-gray-700">
                             <th class="p-3 border"># ID</th>
+                            <th class="p-3 border">Fecha</th>
                             <th class="p-3 border">Cliente</th>
                             <th class="p-3 border">Detalle del Pedido</th>
                             <th class="p-3 border">Estado</th>
@@ -154,6 +207,7 @@
     <script>
         const CLAVE_SECRETA = "admin123";
         const API_URL = "/api";
+        let pedidosGlobales = [];
 
         function verificarClave(event) {
             event.preventDefault();
@@ -161,11 +215,21 @@
             if (pass === CLAVE_SECRETA) {
                 document.getElementById('modal-login').style.display = 'none';
                 document.getElementById('panel-contenido').classList.remove('hidden');
+                inicializarFiltrosAnio();
                 cargarInventario();
                 cargarPedidosAdmin();
                 setInterval(cargarPedidosAdmin, 10000);
             } else {
                 document.getElementById('error-pass').textContent = "Contraseña incorrecta";
+            }
+        }
+
+        function inicializarFiltrosAnio() {
+            const selectAnio = document.getElementById('filtro-anio');
+            const anioActual = new Date().getFullYear();
+            selectAnio.innerHTML = '';
+            for (let i = anioActual; i >= anioActual - 3; i--) {
+                selectAnio.innerHTML += `<option value="${i}">${i}</option>`;
             }
         }
 
@@ -197,11 +261,12 @@
         async function cargarPedidosAdmin() {
             try {
                 const res = await fetch(`${API_URL}/pedidos`);
-                const pedidos = await res.json();
+                pedidosGlobales = await res.json();
+                
                 const tbody = document.getElementById("tabla-pedidos-admin");
                 tbody.innerHTML = "";
 
-                pedidos.forEach(p => {
+                pedidosGlobales.forEach(p => {
                     const tr = document.createElement("tr");
                     tr.className = "border-b hover:bg-gray-50";
                     
@@ -209,6 +274,7 @@
 
                     tr.innerHTML = `
                         <td class="p-3 border font-bold">#${p.id}</td>
+                        <td class="p-3 border text-xs text-gray-500">${p.fecha || 'Sin fecha'}</td>
                         <td class="p-3 border">${p.cliente}</td>
                         <td class="p-3 border text-sm">${p.detalle}</td>
                         <td class="p-3 border"><span class="px-2 py-1 rounded text-xs font-bold ${badgeColor}">${p.estado.toUpperCase()}</span></td>
@@ -219,9 +285,124 @@
                     `;
                     tbody.appendChild(tr);
                 });
+
+                calcularReportes();
             } catch (err) {
                 console.error("Error al cargar los pedidos en el admin");
             }
+        }
+
+        function extraerMontoDelDetalle(detalle) {
+            // Busca algo como "**TOTAL: $3500.0**" en el texto del detalle
+            try {
+                const regex = /\$([0-9]+\.?[0-9]*)/g;
+                let matches = [...detalle.matchAll(regex)];
+                if (matches.length > 0) {
+                    // El último match suele ser el total general del pedido
+                    return parseFloat(matches[matches.length - 1][1]);
+                }
+            } catch (e) {}
+            return 0;
+        }
+
+        function filtrarPedidosActuales() {
+            const anioSeleccionado = document.getElementById('filtro-anio').value;
+            const mesSeleccionado = document.getElementById('filtro-mes').value;
+
+            return pedidosGlobales.filter(p => {
+                if (!p.fecha) return false;
+                // Formato esperado de fecha: "YYYY-MM-DD HH:MM:SS" o similar
+                const anioP = p.fecha.substring(0, 4);
+                const mesP = p.fecha.substring(5, 7);
+
+                if (anioP !== anioSeleccionado) return false;
+                if (mesSeleccionado !== "todos" && mesP !== mesSeleccionado) return false;
+
+                return true;
+            });
+        }
+
+        function calcularReportes() {
+            const filtrados = filtrarPedidosActuales();
+            let totalDinero = 0;
+
+            filtrados.forEach(p => {
+                totalDinero += extraerMontoDelDetalle(p.detalle);
+            });
+
+            document.getElementById('stat-total-dinero').textContent = `$${totalDinero.toFixed(2)}`;
+            document.getElementById('stat-total-pedidos').textContent = filtrados.length;
+        }
+
+        function exportarExcel() {
+            const filtrados = filtrarPedidosActuales();
+            if (filtrados.length === 0) {
+                alert("No hay datos para exportar en este periodo.");
+                return;
+            }
+
+            const datosParaExcel = filtrados.map(p => ({
+                ID: p.id,
+                Fecha: p.fecha,
+                Cliente: p.cliente,
+                Detalle: p.detalle,
+                Estado: p.estado,
+                Monto: extraerMontoDelDetalle(p.detalle)
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(datosParaExcel);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
+            XLSX.writeFile(workbook, `Reporte_Ventas_${document.getElementById('filtro-anio').value}.xlsx`);
+        }
+
+        function exportarPDF() {
+            const filtrados = filtrarPedidosActuales();
+            if (filtrados.length === 0) {
+                alert("No hay datos para exportar en este periodo.");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const anio = document.getElementById('filtro-anio').value;
+            const mes = document.getElementById('filtro-mes').value;
+
+            doc.setFontSize(16);
+            doc.text("Distribuidora Don Vitorio - Reporte de Ventas", 14, 20);
+            
+            doc.setFontSize(11);
+            doc.text(`Periodo: Año ${anio} ${mes !== 'todos' ? '(Mes: ' + mes + ')' : '(Anual)'}`, 14, 28);
+
+            const tableColumn = ["ID", "Fecha", "Cliente", "Detalle", "Estado", "Total"];
+            const tableRows = [];
+
+            let sumaTotal = 0;
+            filtrados.forEach(p => {
+                const monto = extraerMontoDelDetalle(p.detalle);
+                sumaTotal += monto;
+                tableRows.push([
+                    p.id,
+                    p.fecha,
+                    p.cliente,
+                    p.detalle.replace(/<\/?[^>]+(>|$)/g, ""), // limpiar etiquetas si las hay
+                    p.estado,
+                    `$${monto.toFixed(2)}`
+                ]);
+            });
+
+            doc.autoTable({
+                head: [tableColumn],
+                body: tableRows,
+                startY: 35,
+            });
+
+            const finalY = doc.lastAutoTable.finalY || 40;
+            doc.setFontSize(12);
+            doc.text(`Total Recaudado: $${sumaTotal.toFixed(2)}`, 14, finalY + 10);
+
+            doc.save(`Reporte_Ventas_${anio}.pdf`);
         }
 
         async function cambiarEstadoPedido(id, nuevoEstado) {

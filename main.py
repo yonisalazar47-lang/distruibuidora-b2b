@@ -55,6 +55,7 @@ def startup_event():
             cliente_nombre TEXT,
             detalle TEXT,
             estado TEXT DEFAULT 'pendiente',
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(cliente_id) REFERENCES clientes(id)
         )
     """)
@@ -225,23 +226,34 @@ def registrar_pedido(pedido: PedidoEntrante):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT nombre FROM clientes WHERE id = ?", (pedido.cliente_id,))
+    cursor.execute("SELECT nombre, tipo_precio FROM clientes WHERE id = ?", (pedido.cliente_id,))
     cli = cursor.fetchone()
-    cliente_nombre = cli["nombre"] if cli else "Cliente Desconocido"
+    if not cli:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Cliente no encontrado")
+        
+    cliente_nombre = cli["nombre"]
+    tipo_precio = cli["tipo_precio"] if cli["tipo_precio"] else "1"
     
     detalle_items = []
+    total_pedido = 0.0
+    
     for item in pedido.items:
-        cursor.execute("SELECT nombre, stock FROM productos WHERE id = ?", (item.producto_id,))
+        cursor.execute(f"SELECT nombre, stock, precio_{tipo_precio} as precio FROM productos WHERE id = ?", (item.producto_id,))
         prod = cursor.fetchone()
         if not prod or prod["stock"] < item.cantidad:
             conn.close()
             raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto ID {item.producto_id}")
-        detalle_items.append(f"{item.cantidad}x {prod['nombre']}")
+        
+        subtotal = prod["precio"] * item.cantidad
+        total_pedido += subtotal
+        detalle_items.append(f"{item.cantidad}x {prod['nombre']} (${subtotal})")
         
     for item in pedido.items:
         cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (item.cantidad, item.producto_id))
         
-    detalle_texto = ", ".join(detalle_items)
+    detalle_texto = ", ".join(detalle_items) + f" | **TOTAL: ${total_pedido}**"
+    
     cursor.execute(
         "INSERT INTO pedidos (cliente_id, cliente_nombre, detalle, estado) VALUES (?, ?, ?, 'pendiente')",
         (pedido.cliente_id, cliente_nombre, detalle_texto)
@@ -258,9 +270,9 @@ def listar_pedidos(cliente_id: int = None):
     conn = get_db_connection()
     cursor = conn.cursor()
     if cliente_id:
-        cursor.execute("SELECT id, cliente_nombre, detalle, estado FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,))
+        cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,))
     else:
-        cursor.execute("SELECT id, cliente_nombre, detalle, estado FROM pedidos ORDER BY id DESC")
+        cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos ORDER BY id DESC")
     pedidos = cursor.fetchall()
     conn.close()
     
@@ -269,7 +281,8 @@ def listar_pedidos(cliente_id: int = None):
             "id": p["id"],
             "cliente": p["cliente_nombre"],
             "detalle": p["detalle"],
-            "estado": p["estado"]
+            "estado": p["estado"],
+            "fecha": p["fecha"] if "fecha" in p else ""
         }
         for p in pedidos
     ]
