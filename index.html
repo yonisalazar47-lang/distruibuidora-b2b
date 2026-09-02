@@ -93,16 +93,18 @@
                 loginSection.classList.add("hidden");
                 catalogSection.classList.remove("hidden");
 
-                nombreComercioElem.textContent = clienteActual.nombre_comercio;
-                cargarCatalogo(clienteActual.lista_id);
+                nombreComercioElem.textContent = clienteActual.nombre;
+                
+                // Cargamos el catálogo pasando la categoría de precio del cliente
+                cargarCatalogo(clienteActual.tipo_precio);
             } catch (err) {
                 loginError.classList.remove("hidden");
             }
         });
 
-        async function cargarCatalogo(listaId) {
+        async function cargarCatalogo(tipoPrecio) {
             try {
-                const res = await fetch(`${API_URL}/catalogo/${listaId}`);
+                const res = await fetch(`${API_URL}/productos?tipo_precio=${tipoPrecio}`);
                 catalogoProductos = await res.json();
                 renderizarProductos();
             } catch (err) {
@@ -113,7 +115,7 @@
         function renderizarProductos() {
             productosLista.innerHTML = "";
             catalogoProductos.forEach(prod => {
-                const cantidadActual = carrito[prod.producto_id] || 0;
+                const cantidadActual = carrito[prod.id] || 0;
                 const div = document.createElement("div");
                 div.className = "flex justify-between items-center border p-3 rounded-lg shadow-sm";
                 div.innerHTML = `
@@ -123,9 +125,9 @@
                         <p class="text-xs text-gray-500">Stock disponible: ${prod.stock}</p>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <button type="button" onclick="cambiarCantidad(${prod.producto_id}, -1)" class="bg-gray-200 px-2.5 py-1 rounded font-bold">-</button>
-                        <span id="cant-${prod.producto_id}" class="w-6 text-center font-bold">${cantidadActual}</span>
-                        <button type="button" onclick="cambiarCantidad(${prod.producto_id}, 1)" class="bg-blue-600 text-white px-2.5 py-1 rounded font-bold">+</button>
+                        <button type="button" onclick="cambiarCantidad(${prod.id}, -1)" class="bg-gray-200 px-2.5 py-1 rounded font-bold">-</button>
+                        <span id="cant-${prod.id}" class="w-6 text-center font-bold">${cantidadActual}</span>
+                        <button type="button" onclick="cambiarCantidad(${prod.id}, 1)" class="bg-blue-600 text-white px-2.5 py-1 rounded font-bold">+</button>
                     </div>
                 `;
                 productosLista.appendChild(div);
@@ -134,7 +136,7 @@
         }
 
         window.cambiarCantidad = function(productoId, delta) {
-            const prod = catalogoProductos.find(p => p.producto_id === productoId);
+            const prod = catalogoProductos.find(p => p.id === productoId);
             if (!carrito[productoId]) carrito[productoId] = 0;
 
             const nuevaCantidad = carrito[productoId] + delta;
@@ -152,7 +154,7 @@
             let totalItems = 0;
 
             for (let id in carrito) {
-                const prod = catalogoProductos.find(p => p.producto_id == id);
+                const prod = catalogoProductos.find(p => p.id == id);
                 total += prod.precio * carrito[id];
                 totalItems += carrito[id];
             }
@@ -172,7 +174,7 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        cliente_id: clienteActual.cliente_id,
+                        cliente_id: clienteActual.id,
                         items: items
                     })
                 });
@@ -183,7 +185,7 @@
                 alert(`¡Pedido #${data.pedido_id} enviado con éxito! Total: $${data.total}`);
                 
                 carrito = {};
-                cargarCatalogo(clienteActual.lista_id);
+                cargarCatalogo(clienteActual.tipo_precio);
             } catch (err) {
                 alert("Hubo un error al procesar el pedido.");
             }
