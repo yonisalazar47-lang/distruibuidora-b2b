@@ -148,3 +148,28 @@ def leer_admin():
         with open("admin.html", "r", encoding="utf-8") as f:
             return f.read()
     return "El archivo admin.html no se encontró en el servidor."
+from pydantic import BaseModel
+
+# Modelo para recibir el cliente nuevo
+class ClienteNuevo(BaseModel):
+    usuario: str
+    password: str
+    nombre: str
+    tipo_precio: str
+
+# Endpoint para registrar el cliente en la base de datos
+@app.post("/api/clientes")
+def crear_cliente(c: ClienteNuevo):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES (?, ?, ?, ?)",
+            (c.usuario, c.password, c.nombre, c.tipo_precio)
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+    finally:
+        conn.close()
+    return {"mensaje": "Cliente creado con éxito"}
