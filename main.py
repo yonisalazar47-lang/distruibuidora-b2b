@@ -3,8 +3,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
-import sqlite3
 import os
+import psycopg2
+import psycopg2.extras
 
 app = FastAPI()
 
@@ -16,9 +17,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Obtenemos la URL de conexión desde las variables de entorno de Render
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
 def get_db_connection():
-    conn = sqlite3.connect("distribuidora.db")
-    conn.row_factory = sqlite3.Row
+    # PostgreSQL maneja las conexiones mediante psycopg2
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return conn
 
 @app.on_event("startup")
@@ -28,7 +32,7 @@ def startup_event():
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             usuario TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             nombre TEXT NOT NULL,
@@ -38,7 +42,7 @@ def startup_event():
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS productos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             nombre TEXT NOT NULL,
             stock INTEGER NOT NULL,
             precio_1 REAL NOT NULL,
@@ -50,7 +54,7 @@ def startup_event():
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             cliente_id INTEGER,
             cliente_nombre TEXT,
             detalle TEXT,
@@ -60,14 +64,20 @@ def startup_event():
         )
     """)
     
-    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (1, 'cliente1', '1234', 'Kiosco Minorista', '1')")
-    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (2, 'cliente2', '1234', 'Super Mayorista S.A.', '2')")
+    # Datos iniciales si las tablas están vacías
+    cursor.execute("SELECT COUNT(*) as total FROM clientes")
+    if cursor.fetchone()["total"] == 0:
+        cursor.execute("INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES ('cliente1', '1234', 'Kiosco Minorista', '1')")
+        cursor.execute("INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES ('cliente2', '1234', 'Super Mayorista S.A.', '2')")
     
-    cursor.execute("INSERT OR IGNORE INTO productos (id, nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (1, 'Harina 1kg', 100, 1000.0, 800.0, 700.0, 600.0)")
-    cursor.execute("INSERT OR IGNORE INTO productos (id, nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (2, 'COCA COLA 2LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
-    cursor.execute("INSERT OR IGNORE INTO productos (id, nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (3, 'SPRITE 2.25 LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
+    cursor.execute("SELECT COUNT(*) as total FROM productos")
+    if cursor.fetchone()["total"] == 0:
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('Harina 1kg', 100, 1000.0, 800.0, 700.0, 600.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('COCA COLA 2LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('SPRITE 2.25 LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
     
     conn.commit()
+    cursor.close()
     conn.close()
 
 @app.get("/", response_class=HTMLResponse)
@@ -107,10 +117,11 @@ def login_cliente(credenciales: CredencialesLogin):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, nombre, tipo_precio FROM clientes WHERE usuario = ? AND password = ?", 
+        "SELECT id, nombre, tipo_precio FROM clientes WHERE usuario = %s AND password = %s", 
         (credenciales.usuario, credenciales.password)
     )
     cliente = cursor.fetchone()
+    cursor.close()
     conn.close()
     
     if not cliente:
@@ -128,6 +139,7 @@ def listar_productos(tipo_precio: str = "1"):
     cursor = conn.cursor()
     cursor.execute("SELECT id, nombre, stock, precio_1, precio_2, precio_3, precio_4 FROM productos")
     productos = cursor.fetchall()
+    cursor.close()
     conn.close()
     
     lista_resultado = []
@@ -163,10 +175,11 @@ def crear_producto(p: ProductoNuevo):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (%s, %s, %s, %s, %s, %s)",
         (p.nombre, p.stock, p.precio_1, p.precio_2, p.precio_3, p.precio_4)
     )
     conn.commit()
+    cursor.close()
     conn.close()
     return {"mensaje": "Producto creado con éxito"}
 
@@ -176,6 +189,7 @@ def listar_productos_admin():
     cursor = conn.cursor()
     cursor.execute("SELECT id, nombre, stock, precio_1, precio_2, precio_3, precio_4 FROM productos")
     productos = cursor.fetchall()
+    cursor.close()
     conn.close()
     
     return [
@@ -203,13 +217,15 @@ def crear_cliente(c: ClienteNuevo):
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES (?, ?, ?, ?)",
+            "INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES (%s, %s, %s, %s)",
             (c.usuario, c.password, c.nombre, c.tipo_precio)
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except Exception:
+        conn.rollback()
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
     finally:
+        cursor.close()
         conn.close()
     return {"mensaje": "Cliente creado con éxito"}
 
@@ -226,9 +242,10 @@ def registrar_pedido(pedido: PedidoEntrante):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT nombre, tipo_precio FROM clientes WHERE id = ?", (pedido.cliente_id,))
+    cursor.execute("SELECT nombre, tipo_precio FROM clientes WHERE id = %s", (pedido.cliente_id,))
     cli = cursor.fetchone()
     if not cli:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=400, detail="Cliente no encontrado")
         
@@ -239,9 +256,10 @@ def registrar_pedido(pedido: PedidoEntrante):
     total_pedido = 0.0
     
     for item in pedido.items:
-        cursor.execute(f"SELECT nombre, stock, precio_{tipo_precio} as precio FROM productos WHERE id = ?", (item.producto_id,))
+        cursor.execute(f"SELECT nombre, stock, precio_{tipo_precio} as precio FROM productos WHERE id = %s", (item.producto_id,))
         prod = cursor.fetchone()
         if not prod or prod["stock"] < item.cantidad:
+            cursor.close()
             conn.close()
             raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto ID {item.producto_id}")
         
@@ -250,17 +268,21 @@ def registrar_pedido(pedido: PedidoEntrante):
         detalle_items.append(f"{item.cantidad}x {prod['nombre']} (${subtotal})")
         
     for item in pedido.items:
-        cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (item.cantidad, item.producto_id))
+        cursor.execute("UPDATE productos SET stock = stock - %s WHERE id = %s", (item.cantidad, item.producto_id))
         
     detalle_texto = ", ".join(detalle_items) + f" | **TOTAL: ${total_pedido}**"
     
     cursor.execute(
-        "INSERT INTO pedidos (cliente_id, cliente_nombre, detalle, estado) VALUES (?, ?, ?, 'pendiente')",
+        "INSERT INTO pedidos (cliente_id, cliente_nombre, detalle, estado) VALUES (%s, %s, %s, 'pendiente')",
         (pedido.cliente_id, cliente_nombre, detalle_texto)
     )
     
     conn.commit()
-    pedido_id = cursor.lastrowid
+    cursor.execute("SELECT LASTVAL()")
+    res_id = cursor.fetchone()
+    pedido_id = res_id['lastval'] if res_id else 1
+    
+    cursor.close()
     conn.close()
     
     return {"pedido_id": pedido_id, "mensaje": "Pedido registrado con éxito"}
@@ -270,10 +292,11 @@ def listar_pedidos(cliente_id: int = None):
     conn = get_db_connection()
     cursor = conn.cursor()
     if cliente_id:
-        cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,))
+        cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos WHERE cliente_id = %s ORDER BY id DESC", (cliente_id,))
     else:
         cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos ORDER BY id DESC")
     pedidos = cursor.fetchall()
+    cursor.close()
     conn.close()
     
     return [
@@ -282,7 +305,7 @@ def listar_pedidos(cliente_id: int = None):
             "cliente": p["cliente_nombre"],
             "detalle": p["detalle"],
             "estado": p["estado"],
-            "fecha": p["fecha"] if "fecha" in p else ""
+            "fecha": str(p["fecha"]) if p["fecha"] else ""
         }
         for p in pedidos
     ]
@@ -294,7 +317,8 @@ class EstadoActualizacion(BaseModel):
 def actualizar_estado_pedido(pedido_id: int, data: EstadoActualizacion):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (data.estado, pedido_id))
+    cursor.execute("UPDATE pedidos SET estado = %s WHERE id = %s", (data.estado, pedido_id))
     conn.commit()
+    cursor.close()
     conn.close()
     return {"mensaje": "Estado actualizado con éxito"}
