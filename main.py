@@ -173,3 +173,24 @@ def crear_cliente(c: ClienteNuevo):
     finally:
         conn.close()
     return {"mensaje": "Cliente creado con éxito"}
+# Endpoint para que el panel de administración vea todos los detalles y stock
+@app.get("/api/productos-admin")
+def listar_productos_admin():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nombre, stock, precio_1, precio_2, precio_3, precio_4 FROM productos")
+    productos = cursor.fetchall()
+    conn.close()
+    
+    return [
+        {
+            "id": p["id"],
+            "nombre": p["nombre"],
+            "stock": p["stock"],
+            "precio_1": p["precio_1"],
+            "precio_2": p["precio_2"],
+            "precio_3": p["precio_3"],
+            "precio_4": p["precio_4"]
+        }
+        for p in productos
+    ]
