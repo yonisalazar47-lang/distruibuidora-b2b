@@ -111,3 +111,38 @@ def inicializar_bd_si_no_existe():
 
 # Ejecutar esto justo al iniciar la app de FastAPI
 inicializar_bd_si_no_existe()
+# Asegurar que los usuarios de prueba existan al iniciar la app
+@app.on_event("startup")
+def startup_event():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Crear tablas si no existen
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            nombre TEXT NOT NULL,
+            tipo_precio TEXT DEFAULT 'general'
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            stock INTEGER NOT NULL,
+            precio REAL NOT NULL,
+            precio_mayorista REAL DEFAULT 0
+        )
+    """)
+    
+    # Insertar usuarios de prueba
+    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (1, 'cliente1', '1234', 'Kiosco Minorista', 'general')")
+    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (2, 'cliente2', '1234', 'Super Mayorista S.A.', 'mayorista')")
+    
+    # Insertar un producto de prueba
+    cursor.execute("INSERT OR IGNORE INTO productos (id, nombre, stock, precio, precio_mayorista) VALUES (1, 'Harina 1kg', 100, 1000.0, 800.0)")
+    
+    conn.commit()
+    conn.close()
