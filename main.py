@@ -57,8 +57,7 @@ def startup_event():
             cliente_nombre TEXT,
             detalle TEXT,
             estado TEXT DEFAULT 'pendiente',
-            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(cliente_id) REFERENCES clientes(id)
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     
@@ -269,14 +268,10 @@ def registrar_pedido(pedido: PedidoEntrante):
     )
     
     conn.commit()
-    cursor.execute("SELECT LASTVAL()")
-    res_id = cursor.fetchone()
-    pedido_id = res_id['lastval'] if res_id else 1
-    
     cursor.close()
     conn.close()
     
-    return {"pedido_id": pedido_id, "mensaje": "Pedido registrado con éxito"}
+    return {"mensaje": "Pedido registrado con éxito"}
 
 @app.get("/api/pedidos")
 def listar_pedidos(cliente_id: int = None):
