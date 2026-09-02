@@ -106,3 +106,12 @@ def listar_productos(tipo_precio: str = "general"):
         })
         
     return lista_resultado
+from fastapi.responses import HTMLResponse
+import os
+
+@app.get("/", response_class=HTMLResponse)
+def leer_raiz():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "Bienvenido a la API de Distribuidora B2B. El archivo index.html no se encontró en la raíz."
