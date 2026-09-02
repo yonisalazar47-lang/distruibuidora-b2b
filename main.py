@@ -141,3 +141,10 @@ def crear_producto(p: ProductoNuevo):
     conn.commit()
     conn.close()
     return {"mensaje": "Producto creado con éxito"}
+# Ruta específica para servir el panel de administración
+@app.get("/admin.html", response_class=HTMLResponse)
+def leer_admin():
+    if os.path.exists("admin.html"):
+        with open("admin.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "El archivo admin.html no se encontró en el servidor."
