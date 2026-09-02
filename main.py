@@ -306,10 +306,10 @@ class EstadoActualizacion(BaseModel):
 
 @app.put("/api/pedidos/{pedido_id}/estado")
 def actualizar_estado_pedido(pedido_id: int, data: EstadoActualizacion):
-    conn = the_conn = get_db_connection() if 'get_db_connection' in globals() else None
-    cursor = the_conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor()
     cursor.execute("UPDATE pedidos SET estado = %s WHERE id = %s", (data.estado, pedido_id))
-    the_conn.commit()
+    conn.commit()
     cursor.close()
-    the_conn.close()
+    conn.close()
     return {"mensaje": "Estado actualizado con éxito"}
