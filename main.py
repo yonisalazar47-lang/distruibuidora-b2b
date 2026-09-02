@@ -1,11 +1,12 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sqlite3
+import os
 
 app = FastAPI()
 
-# Configurar CORS para permitir que tu frontend se conecte
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,53 +20,61 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# Inicializar base de datos y datos de prueba al encender el servidor
+# Inicializar base de datos con las tablas y 4 precios por producto
 @app.on_event("startup")
 def startup_event():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Crear tablas si no existen con todos los campos necesarios
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             usuario TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             nombre TEXT NOT NULL,
-            tipo_precio TEXT DEFAULT 'general'
+            tipo_precio TEXT DEFAULT '1'
         )
     """)
+    
+    # Tabla de productos adaptada para 4 precios (ej: 1=Minorista, 2=Mayorista, 3=Distribuidor, 4=Especial)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS productos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
             stock INTEGER NOT NULL,
-            precio REAL NOT NULL,
-            precio_mayorista REAL DEFAULT 0
+            precio_1 REAL NOT NULL,
+            precio_2 REAL NOT NULL,
+            precio_3 REAL NOT NULL,
+            precio_4 REAL NOT NULL
         )
     """)
     
-    # Insertar usuarios de prueba por defecto
-    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (1, 'cliente1', '1234', 'Kiosco Minorista', 'general')")
-    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (2, 'cliente2', '1234', 'Super Mayorista S.A.', 'mayorista')")
+    # Usuarios de prueba (tipo_precio puede ser '1', '2', '3' o '4')
+    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (1, 'cliente1', '1234', 'Kiosco Minorista', '1')")
+    cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (2, 'cliente2', '1234', 'Super Mayorista S.A.', '2')")
     
-    # Insertar un producto de prueba con ambos precios
-    cursor.execute("INSERT OR IGNORE INTO productos (id, nombre, stock, precio, precio_mayorista) VALUES (1, 'Harina 1kg', 100, 1000.0, 800.0)")
+    # Producto de prueba con 4 precios distintos
+    cursor.execute("INSERT OR IGNORE INTO productos (id, nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (1, 'Harina 1kg', 100, 1000.0, 800.0, 700.0, 600.0)")
     
     conn.commit()
     conn.close()
 
-# Modelo para recibir los datos del Login
+# Ruta raíz para cargar el portal de pedidos automáticamente
+@app.get("/", response_class=HTMLResponse)
+def leer_raiz():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "Bienvenido a la API de Distribuidora B2B."
+
 class CredencialesLogin(BaseModel):
     usuario: str
     password: str
 
-# 1. Endpoint de Login
 @app.post("/api/login")
 def login_cliente(credenciales: CredencialesLogin):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     cursor.execute(
         "SELECT id, nombre, tipo_precio FROM clientes WHERE usuario = ? AND password = ?", 
         (credenciales.usuario, credenciales.password)
@@ -79,24 +88,29 @@ def login_cliente(credenciales: CredencialesLogin):
     return {
         "id": cliente["id"],
         "nombre": cliente["nombre"],
-        "tipo_precio": cliente["tipo_precio"] if cliente["tipo_precio"] else "general"
+        "tipo_precio": cliente["tipo_precio"] if cliente["tipo_precio"] else "1"
     }
 
-# 2. Endpoint para listar productos adaptando el precio según el cliente
+# Endpoint para listar productos seleccionando el precio correcto según el nivel (1 al 4)
 @app.get("/api/productos")
-def listar_productos(tipo_precio: str = "general"):
+def listar_productos(tipo_precio: str = "1"):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("SELECT id, nombre, stock, precio, precio_mayorista FROM productos")
+    cursor.execute("SELECT id, nombre, stock, precio_1, precio_2, precio_3, precio_4 FROM productos")
     productos = cursor.fetchall()
     conn.close()
     
     lista_resultado = []
     for p in productos:
-        precio_final = p["precio"]
-        if tipo_precio == "mayorista" and p["precio_mayorista"] is not None and p["precio_mayorista"] > 0:
-            precio_final = p["precio_mayorista"]
+        # Seleccionamos qué precio mostrar según el nivel del cliente
+        if tipo_precio == "2":
+            precio_final = p["precio_2"]
+        elif tipo_precio == "3":
+            precio_final = p["precio_3"]
+        elif tipo_precio == "4":
+            precio_final = p["precio_4"]
+        else:
+            precio_final = p["precio_1"]
             
         lista_resultado.append({
             "id": p["id"],
@@ -106,12 +120,24 @@ def listar_productos(tipo_precio: str = "general"):
         })
         
     return lista_resultado
-from fastapi.responses import HTMLResponse
-import os
 
-@app.get("/", response_class=HTMLResponse)
-def leer_raiz():
-    if os.path.exists("index.html"):
-        with open("index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "Bienvenido a la API de Distribuidora B2B. El archivo index.html no se encontró en la raíz."
+# Modelos para dar de alta nuevos registros desde la web
+class ProductoNuevo(BaseModel):
+    nombre: str
+    stock: int
+    precio_1: float
+    precio_2: float
+    precio_3: float
+    precio_4: float
+
+@app.post("/api/productos")
+def crear_producto(p: ProductoNuevo):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (?, ?, ?, ?, ?, ?)",
+        (p.nombre, p.stock, p.precio_1, p.precio_2, p.precio_3, p.precio_4)
+    )
+    conn.commit()
+    conn.close()
+    return {"mensaje": "Producto creado con éxito"}
