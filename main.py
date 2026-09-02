@@ -17,11 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Obtenemos la URL de conexión desde las variables de entorno de Render
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
-    # PostgreSQL maneja las conexiones mediante psycopg2
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return conn
 
@@ -64,7 +62,6 @@ def startup_event():
         )
     """)
     
-    # Datos iniciales si las tablas están vacías
     cursor.execute("SELECT COUNT(*) as total FROM clientes")
     if cursor.fetchone()["total"] == 0:
         cursor.execute("INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES ('cliente1', '1234', 'Kiosco Minorista', '1')")
@@ -89,24 +86,18 @@ def leer_raiz():
 
 @app.get("/index.html", response_class=HTMLResponse)
 def leer_index():
-    if os.path.exists("index.html"):
-        with open("index.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "El archivo index.html no se encontró."
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.get("/admin.html", response_class=HTMLResponse)
 def leer_admin():
-    if os.path.exists("admin.html"):
-        with open("admin.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "El archivo admin.html no se encontró."
+    with open("admin.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.get("/vendedor.html", response_class=HTMLResponse)
 def leer_vendedor():
-    if os.path.exists("vendedor.html"):
-        with open("vendedor.html", "r", encoding="utf-8") as f:
-            return f.read()
-    return "El archivo vendedor.html no se encontró."
+    with open("vendedor.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 class CredencialesLogin(BaseModel):
     usuario: str
@@ -315,10 +306,10 @@ class EstadoActualizacion(BaseModel):
 
 @app.put("/api/pedidos/{pedido_id}/estado")
 def actualizar_estado_pedido(pedido_id: int, data: EstadoActualizacion):
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    conn = the_conn = get_db_connection() if 'get_db_connection' in globals() else None
+    cursor = the_conn.cursor()
     cursor.execute("UPDATE pedidos SET estado = %s WHERE id = %s", (data.estado, pedido_id))
-    conn.commit()
+    the_conn.commit()
     cursor.close()
-    conn.close()
+    the_conn.close()
     return {"mensaje": "Estado actualizado con éxito"}
