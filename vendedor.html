@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Vendedores - Pedidos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans p-6">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <h1 class="text-2xl font-bold text-gray-800">Portal de Vendedores - Gestión de Pedidos</h1>
+            <a href="admin.html" class="text-blue-600 underline text-sm">Ir al Panel Admin</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-200 text-gray-700">
+                        <th class="p-3 border"># ID</th>
+                        <th class="p-3 border">Cliente</th>
+                        <th class="p-3 border">Detalle del Pedido</th>
+                        <th class="p-3 border">Estado</th>
+                        <th class="p-3 border text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-pedidos">
+                    <!-- Se carga dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://distruibuidora-b2b.onrender.com/api";
+
+        async function cargarPedidos() {
+            try {
+                const res = await fetch(`${API_URL}/pedidos`);
+                const pedidos = await res.json();
+                const tbody = document.getElementById("tabla-pedidos");
+                tbody.innerHTML = "";
+
+                pedidos.forEach(p => {
+                    const tr = document.createElement("tr");
+                    tr.className = "border-b hover:bg-gray-50";
+                    
+                    const badgeColor = p.estado === 'entregado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+
+                    tr.innerHTML = `
+                        <td class="p-3 border font-bold">#${p.id}</td>
+                        <td class="p-3 border">${p.cliente}</td>
+                        <td class="p-3 border text-sm">${p.detalle}</td>
+                        <td class="p-3 border"><span class="px-2 py-1 rounded text-xs font-bold ${badgeColor}">${p.estado.toUpperCase()}</span></td>
+                        <td class="p-3 border text-center space-x-2">
+                            <button onclick="cambiarEstado(${p.id}, 'pendiente')" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600">Pendiente</button>
+                            <button onclick="cambiarEstado(${p.id}, 'entregado')" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Entregado</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                alert("Error al cargar los pedidos");
+            }
+        }
+
+        async function cambiarEstado(id, nuevoEstado) {
+            try {
+                const res = await fetch(`${API_URL}/pedidos/${id}/estado`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ estado: nuevoEstado })
+                });
+                if (!res.ok) throw new Error();
+                cargarPedidos();
+            } catch (err) {
+                alert("No se pudo actualizar el estado");
+            }
+        }
+
+        cargarPedidos();
+        // Refrescar automáticamente cada 10 segundos para ver nuevos pedidos de clientes
+        setInterval(cargarPedidos, 10000);
+    </script>
+</body>
+</html>

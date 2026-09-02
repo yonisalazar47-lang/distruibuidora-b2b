@@ -48,6 +48,18 @@ def startup_event():
         )
     """)
     
+    # Tabla de pedidos con estado (pendiente / entregado)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pedidos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id INTEGER,
+            cliente_nombre TEXT,
+            detalle TEXT,
+            estado TEXT DEFAULT 'pendiente',
+            FOREIGN KEY(cliente_id) REFERENCES clientes(id)
+        )
+    """)
+    
     cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (1, 'cliente1', '1234', 'Kiosco Minorista', '1')")
     cursor.execute("INSERT OR IGNORE INTO clientes (id, usuario, password, nombre, tipo_precio) VALUES (2, 'cliente2', '1234', 'Super Mayorista S.A.', '2')")
     
@@ -70,14 +82,21 @@ def leer_index():
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "El archivo index.html no se encontró en el servidor."
+    return "El archivo index.html no se encontró."
 
 @app.get("/admin.html", response_class=HTMLResponse)
 def leer_admin():
     if os.path.exists("admin.html"):
         with open("admin.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "El archivo admin.html no se encontró en el servidor."
+    return "El archivo admin.html no se encontró."
+
+@app.get("/vendedor.html", response_class=HTMLResponse)
+def leer_vendedor():
+    if os.path.exists("vendedor.html"):
+        with open("vendedor.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "El archivo vendedor.html no se encontró."
 
 class CredencialesLogin(BaseModel):
     usuario: str
@@ -207,17 +226,63 @@ def registrar_pedido(pedido: PedidoEntrante):
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Obtener nombre del cliente
+    cursor.execute("SELECT nombre FROM clientes WHERE id = ?", (pedido.cliente_id,))
+    cli = cursor.fetchone()
+    cliente_nombre = cli["nombre"] if cli else "Cliente Desconocido"
+    
+    detalle_items = []
     for item in pedido.items:
-        cursor.execute("SELECT stock FROM productos WHERE id = ?", (item.producto_id,))
+        cursor.execute("SELECT nombre, stock FROM productos WHERE id = ?", (item.producto_id,))
         prod = cursor.fetchone()
         if not prod or prod["stock"] < item.cantidad:
             conn.close()
             raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto ID {item.producto_id}")
-            
+        detalle_items.append(f"{item.cantidad}x {prod['nombre']}")
+        
+    # Descontar stock
     for item in pedido.items:
         cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (item.cantidad, item.producto_id))
         
+    # Guardar el pedido en la base de datos
+    detalle_texto = ", ".join(detalle_items)
+    cursor.execute(
+        "INSERT INTO pedidos (cliente_id, cliente_nombre, detalle, estado) VALUES (?, ?, ?, 'pendiente')",
+        (pedido.cliente_id, cliente_nombre, detalle_texto)
+    )
+    
     conn.commit()
+    pedido_id = cursor.lastrowid
     conn.close()
     
-    return {"pedido_id": 1001, "mensaje": "Pedido registrado con éxito"}
+    return {"pedido_id": pedido_id, "mensaje": "Pedido registrado con éxito"}
+
+@app.get("/api/pedidos")
+def listar_pedidos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, cliente_nombre, detalle, estado FROM pedidos ORDER BY id DESC")
+    pedidos = cursor.fetchall()
+    conn.close()
+    
+    return [
+        {
+            "id": p["id"],
+            "cliente": p["cliente_nombre"],
+            "detalle": p["detalle"],
+            "estado": p["estado"]
+        }
+        for p in pedidos
+    ]
+
+class EstadoActualizacion(BaseModel):
+    estado: str
+
+@app.put("/api/pedidos/{pedido_id}/estado")
+def actualizar_estado_pedido(pedido_id: int, data: EstadoActualizacion):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (data.estado, pedido_id))
+    conn.commit()
+    conn.close()
+    return {"mensaje": "Estado actualizado con éxito"}
