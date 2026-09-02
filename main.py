@@ -194,3 +194,10 @@ def listar_productos_admin():
         }
         for p in productos
     ]
+# Ruta específica para servir el archivo index.html del portal de clientes
+@app.get("/index.html", response_class=HTMLResponse)
+def leer_index():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "El archivo index.html no se encontró en el servidor."
