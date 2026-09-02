@@ -3,14 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Vendedores - Pedidos</title>
+    <title>Portal de Vendedores - Distribuidora Don Vitorio</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 font-sans p-6">
 
-    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
+    <!-- Modal de Login para Vendedores -->
+    <div id="modal-login-vendedor" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full space-y-4">
+            <h2 class="text-xl font-bold text-gray-800 text-center">Acceso Vendedores</h2>
+            <p class="text-xs text-gray-500 text-center">Ingresa la clave para ver y gestionar los pedidos.</p>
+            <form onsubmit="verificarClaveVendedor(event)" class="space-y-4">
+                <input type="password" id="vendedor-pass" placeholder="Contraseña" required class="w-full p-2 border rounded-md focus:ring focus:ring-green-300">
+                <button type="submit" class="w-full bg-green-600 text-white p-2 rounded-md hover:bg-green-700 font-medium">Ingresar</button>
+            </form>
+            <p id="error-pass-vendedor" class="text-xs text-red-600 text-center font-medium"></p>
+            <div class="text-center">
+                <a href="index.html" class="text-xs text-blue-600 hover:underline">Volver a la Tienda</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido del Portal Vendedor -->
+    <div id="panel-vendedor" class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6 hidden">
         <div class="flex justify-between items-center mb-6 border-b pb-4">
-            <h1 class="text-2xl font-bold text-gray-800">Portal de Vendedores - Gestión de Pedidos</h1>
+            <h1 class="text-2xl font-bold text-gray-800">Distribuidora Don Vitorio - Gestión de Pedidos</h1>
             <a href="admin.html" class="text-blue-600 underline text-sm">Ir al Panel Admin</a>
         </div>
 
@@ -33,7 +50,21 @@
     </div>
 
     <script>
-        const API_URL = "https://distruibuidora-b2b.onrender.com/api";
+        const CLAVE_VENDEDOR = "vendedor123";
+        const API_URL = "/api";
+
+        function verificarClaveVendedor(event) {
+            event.preventDefault();
+            const pass = document.getElementById('vendedor-pass').value;
+            if (pass === CLAVE_VENDEDOR) {
+                document.getElementById('modal-login-vendedor').style.display = 'none';
+                document.getElementById('panel-vendedor').classList.remove('hidden');
+                cargarPedidos();
+                setInterval(cargarPedidos, 10000);
+            } else {
+                document.getElementById('error-pass-vendedor').textContent = "Contraseña incorrecta";
+            }
+        }
 
         async function cargarPedidos() {
             try {
@@ -61,7 +92,7 @@
                     tbody.appendChild(tr);
                 });
             } catch (err) {
-                alert("Error al cargar los pedidos");
+                console.error("Error al cargar los pedidos");
             }
         }
 
@@ -78,10 +109,6 @@
                 alert("No se pudo actualizar el estado");
             }
         }
-
-        cargarPedidos();
-        // Refrescar automáticamente cada 10 segundos para ver nuevos pedidos de clientes
-        setInterval(cargarPedidos, 10000);
     </script>
 </body>
 </html>

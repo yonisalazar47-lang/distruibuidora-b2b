@@ -3,81 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Pedidos - Distribuidora</title>
+    <title>Portal de Pedidos - Distribuidora Don Vitorio</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 font-sans">
+<body class="bg-gray-100 font-sans p-6">
 
-    <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-lg flex flex-col">
-        
-        <!-- HEADER -->
-        <header class="bg-blue-600 text-white p-4 text-center font-bold text-lg">
-            Distribuidora B2B
-        </header>
-
-        <!-- SECCIÓN 1: LOGIN -->
-        <div id="login-section" class="p-6 flex-1 flex flex-col justify-center">
-            <h2 class="text-xl font-bold mb-4 text-gray-800 text-center">Acceso Clientes</h2>
-            <form id="login-form" class="space-y-4">
+    <!-- MODAL DE LOGIN CLIENTES -->
+    <div id="modal-login" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full space-y-4">
+            <h2 class="text-2xl font-bold text-gray-800 text-center">Distribuidora Don Vitorio</h2>
+            <p class="text-sm text-gray-500 text-center">Inicia sesión con tu cuenta B2B</p>
+            <form onsubmit="iniciarSesion(event)" class="space-y-4">
                 <div>
-                    <label class="block text-sm text-gray-600 mb-1">Usuario</label>
-                    <input type="text" id="usuario" required class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label class="block text-sm font-medium text-gray-700">Usuario</label>
+                    <input type="text" id="login-usuario" required class="w-full mt-1 p-2 border rounded-md">
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-600 mb-1">Contraseña</label>
-                    <input type="password" id="password" required class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label class="block text-sm font-medium text-gray-700">Contraseña</label>
+                    <input type="password" id="login-password" required class="w-full mt-1 p-2 border rounded-md">
                 </div>
-                <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded font-bold hover:bg-blue-700">Ingresar</button>
+                <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 font-medium">Entrar al Portal</button>
             </form>
-            <p id="login-error" class="text-red-500 text-sm mt-2 text-center hidden">Usuario o contraseña incorrectos</p>
+            <p id="error-login" class="text-sm text-red-600 text-center font-medium"></p>
+            <div class="text-center pt-2 border-t">
+                <a href="admin.html" class="text-xs text-gray-500 hover:underline">Panel Administrador</a> | 
+                <a href="vendedor.html" class="text-xs text-gray-500 hover:underline">Portal Vendedores</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL DE LA TIENDA -->
+    <div id="app-contenido" class="max-w-2xl mx-auto bg-white shadow-lg rounded-lg p-6 hidden">
+        
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Distribuidora Don Vitorio</h1>
+                <p id="nombre-cliente-display" class="text-sm text-blue-600 font-medium"></p>
+            </div>
+            <button onclick="cerrarSesion()" class="text-red-500 hover:underline text-sm font-medium">Salir</button>
         </div>
 
-        <!-- SECCIÓN 2: CATALOGO Y PEDIDOS -->
-        <div id="catalog-section" class="p-4 flex-1 hidden flex flex-col">
-            <div class="flex justify-between items-center mb-4 border-b pb-2">
-                <div>
-                    <h3 id="nombre-comercio" class="font-bold text-gray-800"></h3>
-                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Catálogo Exclusivo</span>
-                </div>
-                <button id="btn-logout" class="text-sm text-red-500 underline">Salir</button>
+        <!-- LISTA DE PRODUCTOS -->
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Catálogo Exclusivo</h2>
+        <div id="lista-productos" class="space-y-4 mb-8">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+        <!-- RESUMEN Y BOTÓN DE COMPRA -->
+        <div class="border-t pt-4 mb-8">
+            <div class="flex justify-between items-center text-xl font-bold text-gray-800 mb-4">
+                <span>Total estimado:</span>
+                <span id="total-estimado">$0.00</span>
             </div>
+            <button onclick="confirmarPedido()" class="w-full bg-green-600 text-white p-3 rounded-md hover:bg-green-700 font-bold text-lg">Confirmar Pedido</button>
+        </div>
 
-            <!-- Lista de Productos -->
-            <div id="productos-lista" class="space-y-3 flex-1 overflow-y-auto mb-4"></div>
-
-            <!-- Resumen y Enviar Pedido -->
-            <div class="border-t pt-3 bg-gray-50 p-3 rounded-lg">
-                <div class="flex justify-between font-bold text-lg mb-2">
-                    <span>Total estimado:</span>
-                    <span id="total-pedido">$0.00</span>
-                </div>
-                <button id="btn-enviar" class="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50" disabled>
-                    Confirmar Pedido
-                </button>
+        <!-- SECCIÓN: MIS PEDIDOS REALIZADOS -->
+        <div class="border-t pt-6">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">Mis Pedidos Realizados</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-600">
+                            <th class="p-2 border"># ID</th>
+                            <th class="p-2 border">Detalle</th>
+                            <th class="p-2 border">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-mis-pedidos">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
     </div>
 
     <script>
-        const API_URL = "https://distruibuidora-b2b.onrender.com/api";
+        const API_URL = "/api";
         let clienteActual = null;
-        let catalogoProductos = [];
+        let productosCache = [];
         let carrito = {};
 
-        const loginSection = document.getElementById("login-section");
-        const catalogSection = document.getElementById("catalog-section");
-        const loginForm = document.getElementById("login-form");
-        const loginError = document.getElementById("login-error");
-        const productosLista = document.getElementById("productos-lista");
-        const nombreComercioElem = document.getElementById("nombre-comercio");
-        const totalPedidoElem = document.getElementById("total-pedido");
-        const btnEnviar = document.getElementById("btn-enviar");
+        window.onload = function() {
+            const guardado = localStorage.getItem("cliente_b2b");
+            if (guardado) {
+                clienteActual = JSON.parse(guardado);
+                document.getElementById("modal-login").style.display = "none";
+                document.getElementById("app-contenido").classList.remove("hidden");
+                document.getElementById("nombre-cliente-display").textContent = clienteActual.nombre;
+                cargarCatalogo();
+                cargarMisPedidos();
+            }
+        };
 
-        loginForm.addEventListener("submit", async function(e) {
-            e.preventDefault();
-            const usuario = document.getElementById("usuario").value.trim();
-            const password = document.getElementById("password").value.trim();
+        async function iniciarSesion(event) {
+            event.preventDefault();
+            const usuario = document.getElementById("login-usuario").value;
+            const password = document.getElementById("login-password").value;
 
             try {
                 const res = await fetch(`${API_URL}/login`, {
@@ -89,111 +112,137 @@
                 if (!res.ok) throw new Error("Credenciales inválidas");
 
                 clienteActual = await res.json();
-                loginError.classList.add("hidden");
-                loginSection.classList.add("hidden");
-                catalogSection.classList.remove("hidden");
-
-                nombreComercioElem.textContent = clienteActual.nombre;
+                localStorage.setItem("cliente_b2b", JSON.stringify(clienteActual));
                 
-                // Cargamos el catálogo pasando la categoría de precio del cliente
-                cargarCatalogo(clienteActual.tipo_precio);
+                document.getElementById("modal-login").style.display = "none";
+                document.getElementById("app-contenido").classList.remove("hidden");
+                document.getElementById("nombre-cliente-display").textContent = clienteActual.nombre;
+                cargarCatalogo();
+                cargarMisPedidos();
             } catch (err) {
-                loginError.classList.remove("hidden");
+                document.getElementById("error-login").textContent = "Usuario o contraseña incorrectos";
             }
-        });
+        }
 
-        async function cargarCatalogo(tipoPrecio) {
+        function cerrarSesion() {
+            localStorage.removeItem("cliente_b2b");
+            location.reload();
+        }
+
+        async function cargarCatalogo() {
             try {
+                const tipoPrecio = clienteActual.tipo_precio || "1";
                 const res = await fetch(`${API_URL}/productos?tipo_precio=${tipoPrecio}`);
-                catalogoProductos = await res.json();
-                renderizarProductos();
-            } catch (err) {
-                alert("Error al cargar el catálogo de productos");
-            }
-        }
-
-        function renderizarProductos() {
-            productosLista.innerHTML = "";
-            catalogoProductos.forEach(prod => {
-                const cantidadActual = carrito[prod.id] || 0;
-                const div = document.createElement("div");
-                div.className = "flex justify-between items-center border p-3 rounded-lg shadow-sm";
-                div.innerHTML = `
-                    <div>
-                        <h4 class="font-bold text-gray-800">${prod.nombre}</h4>
-                        <p class="text-green-600 font-semibold">$${prod.precio.toFixed(2)}</p>
-                        <p class="text-xs text-gray-500">Stock disponible: ${prod.stock}</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button type="button" onclick="cambiarCantidad(${prod.id}, -1)" class="bg-gray-200 px-2.5 py-1 rounded font-bold">-</button>
-                        <span id="cant-${prod.id}" class="w-6 text-center font-bold">${cantidadActual}</span>
-                        <button type="button" onclick="cambiarCantidad(${prod.id}, 1)" class="bg-blue-600 text-white px-2.5 py-1 rounded font-bold">+</button>
-                    </div>
-                `;
-                productosLista.appendChild(div);
-            });
-            actualizarTotal();
-        }
-
-        window.cambiarCantidad = function(productoId, delta) {
-            const prod = catalogoProductos.find(p => p.id === productoId);
-            if (!carrito[productoId]) carrito[productoId] = 0;
-
-            const nuevaCantidad = carrito[productoId] + delta;
-            if (nuevaCantidad >= 0 && nuevaCantidad <= prod.stock) {
-                carrito[productoId] = nuevaCantidad;
-                if (carrito[productoId] === 0) delete carrito[productoId];
+                productosCache = await res.json();
                 
-                document.getElementById(`cant-${productoId}`).textContent = carrito[productoId] || 0;
+                const contenedor = document.getElementById("lista-productos");
+                contenedor.innerHTML = "";
+
+                productosCache.forEach(p => {
+                    if (!carrito[p.id]) carrito[p.id] = 0;
+
+                    contenedor.innerHTML += `
+                        <div class="flex justify-between items-center p-4 border rounded-lg shadow-sm bg-gray-50">
+                            <div>
+                                <h3 class="font-bold text-gray-800">${p.nombre}</h3>
+                                <p class="text-green-600 font-semibold">$${p.precio.toFixed(2)}</p>
+                                <p class="text-xs text-gray-500">Stock disponible: ${p.stock}</p>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <button onclick="cambiarCantidad(${p.id}, -1)" class="bg-gray-300 px-3 py-1 rounded font-bold hover:bg-gray-400">-</button>
+                                <span id="cant-${p.id}" class="font-bold w-6 text-center">${carrito[p.id]}</span>
+                                <button onclick="cambiarCantidad(${p.id}, 1)" class="bg-blue-600 text-white px-3 py-1 rounded font-bold hover:bg-blue-700">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
                 actualizarTotal();
+            } catch (e) {
+                console.error("Error al cargar catálogo");
             }
+        }
+
+        function cambiarCantidad(id, delta) {
+            const prod = productosCache.find(p => p.id === id);
+            if (!prod) return;
+
+            let nuevoVal = carrito[id] + delta;
+            if (nuevoVal < 0) nuevoVal = 0;
+            if (nuevoVal > prod.stock) {
+                alert("No hay suficiente stock disponible");
+                return;
+            }
+
+            carrito[id] = nuevoVal;
+            document.getElementById(`cant-${id}`).textContent = carrito[id];
+            actualizarTotal();
         }
 
         function actualizarTotal() {
             let total = 0;
-            let totalItems = 0;
-
-            for (let id in carrito) {
-                const prod = catalogoProductos.find(p => p.id == id);
-                total += prod.precio * carrito[id];
-                totalItems += carrito[id];
-            }
-
-            totalPedidoElem.textContent = `$${total.toFixed(2)}`;
-            btnEnviar.disabled = totalItems === 0;
+            productosCache.forEach(p => {
+                total += carrito[p.id] * p.precio;
+            });
+            document.getElementById("total-estimado").textContent = `$${total.toFixed(2)}`;
         }
 
-        btnEnviar.addEventListener("click", async () => {
-            const items = Object.keys(carrito).map(id => ({
-                producto_id: parseInt(id),
-                cantidad: carrito[id]
-            }));
+        async function confirmarPedido() {
+            let items = [];
+            for (let id in carrito) {
+                if (carrito[id] > 0) {
+                    items.push({ producto_id: parseInt(id), cantidad: carrito[id] });
+                }
+            }
+
+            if (items.length === 0) {
+                alert("Tu carrito está vacío");
+                return;
+            }
 
             try {
                 const res = await fetch(`${API_URL}/pedidos`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        cliente_id: clienteActual.id,
-                        items: items
-                    })
+                    body: JSON.stringify({ cliente_id: clienteActual.id, items: items })
                 });
 
-                if (!res.ok) throw new Error("Error al registrar el pedido");
+                if (!res.ok) throw new Error();
 
-                const data = await res.json();
-                alert(`¡Pedido #${data.pedido_id} enviado con éxito! Total: $${data.total}`);
-                
+                alert("¡Pedido realizado con éxito!");
                 carrito = {};
-                cargarCatalogo(clienteActual.tipo_precio);
+                cargarCatalogo();
+                cargarMisPedidos();
             } catch (err) {
-                alert("Hubo un error al procesar el pedido.");
+                alert("Error al procesar el pedido. Verifica el stock.");
             }
-        });
+        }
 
-        document.getElementById("btn-logout").addEventListener("click", () => {
-            location.reload();
-        });
+        async function cargarMisPedidos() {
+            try {
+                const res = await fetch(`${API_URL}/pedidos?cliente_id=${clienteActual.id}`);
+                const pedidos = await res.json();
+                const tbody = document.getElementById("tabla-mis-pedidos");
+                tbody.innerHTML = "";
+
+                if (pedidos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500">Aún no realizaste ningún pedido.</td></tr>`;
+                    return;
+                }
+
+                pedidos.forEach(p => {
+                    const badgeColor = p.estado === 'entregado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                    tbody.innerHTML += `
+                        <tr class="border-b">
+                            <td class="p-2 border font-bold">#${p.id}</td>
+                            <td class="p-2 border text-xs">${p.detalle}</td>
+                            <td class="p-2 border"><span class="px-2 py-0.5 rounded text-xs font-bold ${badgeColor}">${p.estado.toUpperCase()}</span></td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                console.error("Error al cargar los pedidos del cliente");
+            }
+        }
     </script>
 </body>
 </html>

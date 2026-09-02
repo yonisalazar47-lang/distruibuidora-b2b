@@ -48,7 +48,6 @@ def startup_event():
         )
     """)
     
-    # Tabla de pedidos con estado (pendiente / entregado)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +74,7 @@ def leer_raiz():
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "Bienvenido a la API de Distribuidora B2B."
+    return "Bienvenido a Distribuidora Don Vitorio."
 
 @app.get("/index.html", response_class=HTMLResponse)
 def leer_index():
@@ -226,7 +225,6 @@ def registrar_pedido(pedido: PedidoEntrante):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Obtener nombre del cliente
     cursor.execute("SELECT nombre FROM clientes WHERE id = ?", (pedido.cliente_id,))
     cli = cursor.fetchone()
     cliente_nombre = cli["nombre"] if cli else "Cliente Desconocido"
@@ -240,11 +238,9 @@ def registrar_pedido(pedido: PedidoEntrante):
             raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto ID {item.producto_id}")
         detalle_items.append(f"{item.cantidad}x {prod['nombre']}")
         
-    # Descontar stock
     for item in pedido.items:
         cursor.execute("UPDATE productos SET stock = stock - ? WHERE id = ?", (item.cantidad, item.producto_id))
         
-    # Guardar el pedido en la base de datos
     detalle_texto = ", ".join(detalle_items)
     cursor.execute(
         "INSERT INTO pedidos (cliente_id, cliente_nombre, detalle, estado) VALUES (?, ?, ?, 'pendiente')",
@@ -258,10 +254,13 @@ def registrar_pedido(pedido: PedidoEntrante):
     return {"pedido_id": pedido_id, "mensaje": "Pedido registrado con éxito"}
 
 @app.get("/api/pedidos")
-def listar_pedidos():
+def listar_pedidos(cliente_id: int = None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, cliente_nombre, detalle, estado FROM pedidos ORDER BY id DESC")
+    if cliente_id:
+        cursor.execute("SELECT id, cliente_nombre, detalle, estado FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,))
+    else:
+        cursor.execute("SELECT id, cliente_nombre, detalle, estado FROM pedidos ORDER BY id DESC")
     pedidos = cursor.fetchall()
     conn.close()
     
