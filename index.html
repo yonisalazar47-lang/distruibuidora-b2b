@@ -10,7 +10,8 @@ async function enviarPedido() {
         return;
     }
 
-    // Configura tu número de teléfono con código de país (sin + ni espacios)
+    // Coloca aquí tu número con código de país (sin el signo + ni espacios)
+    // Ejemplo para Argentina: 5491112345678
     const MI_WHATSAPP = "5492984746691"; 
 
     const total = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
@@ -29,20 +30,21 @@ async function enviarPedido() {
         });
 
         if (res.ok) {
-            // Construye el mensaje con formato para WhatsApp
+            // Arma el mensaje con saltos de línea para WhatsApp
             let mensajeWA = `🛒 *NUEVO PEDIDO B2B*\n`;
             mensajeWA += `👤 *Cliente:* ${cliente}\n`;
-            mensajeWA += `📋 *Lista:* #${numLista}\n\n`;
+            mensajeWA += `📋 *Lista de precio:* #${numLista}\n\n`;
             mensajeWA += `*Detalle del pedido:*\n`;
             carrito.forEach(i => {
                 mensajeWA += `• ${i.cantidad}x ${i.nombre} - $${(i.precio * i.cantidad).toFixed(2)}\n`;
             });
             mensajeWA += `\n💰 *TOTAL:* $${total.toFixed(2)}`;
 
+            // Redirige o abre la app de WhatsApp
             const urlWA = `https://wa.me/${MI_WHATSAPP}?text=${encodeURIComponent(mensajeWA)}`;
             
-            alert('¡Pedido guardado! Se abrirá WhatsApp para enviarlo.');
-            window.open(urlWA, '_blank');
+            alert('¡Pedido registrado! Serás redirigido a WhatsApp para confirmar.');
+            window.location.href = urlWA;
 
             carrito = [];
             document.getElementById('nombre-cliente').value = '';
