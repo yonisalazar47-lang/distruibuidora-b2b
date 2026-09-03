@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Administrador - Distribuidora Don Vitorio</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librerías para Exportar a Excel y PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 md:p-6">
 
@@ -23,13 +27,24 @@
         <!-- SECCIÓN PEDIDOS -->
         <section id="sec-pedidos" class="space-y-4">
             <div class="flex flex-wrap gap-2 justify-between items-center bg-white p-3 rounded shadow-sm">
-                <input type="text" id="buscar-pedido" onkeyup="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded text-sm w-full sm:w-64">
-                <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded text-sm">
-                    <option value="">Todos los estados</option>
-                    <option value="pendiente">Pendientes</option>
-                    <option value="en proceso">En proceso</option>
-                    <option value="entregado">Entregados</option>
-                </select>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <input type="text" id="buscar-pedido" onkeyup="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded text-sm w-full sm:w-64">
+                    <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded text-sm">
+                        <option value="">Todos los estados</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="en proceso">En proceso</option>
+                        <option value="entregado">Entregados</option>
+                    </select>
+                </div>
+                <!-- Botones Exportar -->
+                <div class="flex space-x-2">
+                    <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded">
+                        📊 Exportar Excel
+                    </button>
+                    <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded">
+                        📄 Exportar PDF
+                    </button>
+                </div>
             </div>
 
             <div class="bg-white rounded-lg shadow overflow-x-auto">
@@ -170,6 +185,41 @@
             if(!confirm('¿Deseas eliminar este pedido?')) return;
             await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
             cargarPedidos();
+        }
+
+        // --- EXPORTACIÓN ---
+        function exportarExcel() {
+            if (pedidosCache.length === 0) return alert('No hay pedidos para exportar.');
+            const datosFormat = pedidosCache.map(p => ({
+                ID: p.id,
+                Cliente: p.cliente,
+                Lista: p.lista_precio,
+                Detalle: p.detalle,
+                Estado: p.estado
+            }));
+            const ws = XLSX.utils.json_to_sheet(datosFormat);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
+            XLSX.writeFile(wb, "Pedidos_Distribuidora.xlsx");
+        }
+
+        function exportarPDF() {
+            if (pedidosCache.length === 0) return alert('No hay pedidos para exportar.');
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Reporte de Pedidos - Distribuidora Don Vitorio", 14, 15);
+            
+            const columnas = ["# ID", "Cliente", "Lista", "Detalle", "Estado"];
+            const filas = pedidosCache.map(p => [p.id, p.cliente, `Lista ${p.lista_precio}`, p.detalle, p.estado]);
+
+            doc.autoTable({
+                startY: 22,
+                head: [columnas],
+                body: filas,
+                styles: { fontSize: 8 }
+            });
+
+            doc.save("Pedidos_Distribuidora.pdf");
         }
 
         // --- PRODUCTOS Y STOCK ---
