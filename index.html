@@ -6,175 +6,90 @@
     <title>Portal de Pedidos - Distribuidora Don Vitorio</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 min-h-screen flex flex-col">
 
-    <!-- Login Container -->
-    <div id="login-container" class="flex items-center justify-center min-h-screen px-4">
-        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-            <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">Distribuidora Don Vitorio</h2>
-            <form onsubmit="handleLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Usuario</label>
-                    <input type="text" id="usuario" required class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Contraseña</label>
-                    <input type="password" id="password" required class="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 font-bold transition">Ingresar</button>
-            </form>
-            <div class="mt-4 text-center">
-                <a href="admin.html" class="text-sm text-blue-500 hover:underline">Acceso Panel Administrador</a>
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-bold">Distribuidora Don Vitorio</h1>
+                <span id="badge-lista" class="text-xs bg-blue-700 px-2 py-0.5 rounded">Cargando lista de precios...</span>
             </div>
+            <a href="admin.html" class="text-xs text-blue-200 hover:text-white underline">Acceso Admin</a>
         </div>
-    </div>
+    </nav>
 
-    <!-- Portal de Cliente (Oculto al inicio) -->
-    <div id="app-container" class="hidden min-h-screen flex flex-col">
-        <!-- Navbar -->
-        <nav class="bg-blue-600 text-white shadow-md">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                <div>
-                    <h1 class="text-lg font-bold" id="bienvenida-cliente">Cliente</h1>
-                    <span id="badge-lista" class="text-xs bg-blue-700 px-2 py-0.5 rounded">Lista de precios</span>
-                </div>
-                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">Cerrar Sesión</button>
-            </div>
-        </nav>
-
-        <!-- Navegación interna del Portal -->
-        <div class="max-w-7xl mx-auto w-full px-4 pt-6">
-            <div class="flex space-x-2 border-b pb-2">
-                <button onclick="cambiarTabCliente('catalogo')" id="btn-tab-catalogo" class="bg-blue-600 text-white px-4 py-2 rounded font-medium transition">Catálogo y Pedidos</button>
-                <button onclick="cambiarTabCliente('mis-pedidos')" id="btn-tab-mis-pedidos" class="bg-gray-200 text-gray-700 px-4 py-2 rounded font-medium hover:bg-gray-300 transition">Mis Pedidos Realizados</button>
+    <!-- Contenido Principal -->
+    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow w-full">
+        <!-- Productos -->
+        <div class="md:col-span-2 space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Catálogo de Productos</h2>
+            <div id="productos-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Se carga por JS -->
             </div>
         </div>
 
-        <!-- SECCIÓN CATÁLOGO Y COMPRA -->
-        <main id="sec-catalogo" class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow w-full">
-            <!-- Productos -->
-            <div class="md:col-span-2 space-y-4">
-                <h2 class="text-xl font-bold text-gray-800">Catálogo de Productos</h2>
-                <div id="productos-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- Cards cargadas por JS -->
-                </div>
+        <!-- Carrito -->
+        <div class="bg-white p-6 rounded-lg shadow-md h-fit space-y-4 sticky top-6">
+            <h2 class="text-xl font-bold text-gray-800 border-b pb-2">Tu Pedido Actual</h2>
+            
+            <div class="space-y-2">
+                <label class="block text-sm font-bold text-gray-700">Nombre de tu Comercio / Negocio:</label>
+                <input type="text" id="nombre-comercio" placeholder="Ej: Kiosco Don Juan" required class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
-            <!-- Carrito -->
-            <div class="bg-white p-6 rounded-lg shadow-md h-fit space-y-4 sticky top-6">
-                <h2 class="text-xl font-bold text-gray-800 border-b pb-2">Tu Pedido Actual</h2>
-                <div id="carrito-lista" class="space-y-2 max-h-60 overflow-y-auto">
-                    <p class="text-gray-500 text-sm">El carrito está vacío</p>
-                </div>
-                <div class="border-t pt-4 flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span id="carrito-total">$0.00</span>
-                </div>
-                <button onclick="enviarPedido()" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded font-bold transition">Confirmar y Enviar Pedido</button>
+            <div id="carrito-lista" class="space-y-2 max-h-60 overflow-y-auto border-t pt-2">
+                <p class="text-gray-500 text-sm">El carrito está vacío</p>
             </div>
-        </main>
-
-        <!-- SECCIÓN MIS PEDIDOS -->
-        <main id="sec-mis-pedidos" class="hidden max-w-7xl mx-auto px-4 py-6 w-full flex-grow">
-            <div class="bg-white p-6 rounded-lg shadow space-y-4">
-                <h2 class="text-xl font-bold text-gray-800">Historial de tus Pedidos</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-gray-200 text-sm">
-                                <th class="p-3 border">ID Pedido</th>
-                                <th class="p-3 border">Fecha</th>
-                                <th class="p-3 border">Detalle</th>
-                                <th class="p-3 border">Estado</th>
-                                <th class="p-3 border text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-mis-pedidos-body">
-                            <!-- Se carga por JS -->
-                        </tbody>
-                    </table>
-                </div>
+            <div class="border-t pt-4 flex justify-between font-bold text-lg">
+                <span>Total:</span>
+                <span id="carrito-total">$0.00</span>
             </div>
-        </main>
-    </div>
+            <button onclick="enviarPedido()" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded font-bold transition">Confirmar y Enviar Pedido</button>
+        </div>
+    </main>
 
     <script>
-        let clienteActual = null;
         let productos = [];
         let carrito = {};
+        let tipoLista = "1";
 
-        async function handleLogin(e) {
-            e.preventDefault();
-            const usuario = document.getElementById('usuario').value;
-            const password = document.getElementById('password').value;
-
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ usuario, password })
-                });
-
-                if(!res.ok) throw new Error('Credenciales incorrectas');
-
-                clienteActual = await res.json();
-                document.getElementById('login-container').classList.add('hidden');
-                document.getElementById('app-container').classList.remove('hidden');
-                document.getElementById('bienvenida-cliente').innerText = `Bienvenido, ${clienteActual.nombre}`;
-                document.getElementById('badge-lista').innerText = `Lista de Precios #${clienteActual.tipo_precio}`;
-
-                cargarProductos();
-            } catch (err) {
-                alert('Usuario o contraseña incorrectos');
+        // Detectar el parámetro ?lista=X de la URL
+        function obtenerListaDeURL() {
+            const params = new URLSearchParams(window.location.search);
+            const lista = params.get('lista');
+            if (lista && ["1", "2", "3", "4"].includes(lista)) {
+                tipoLista = lista;
             }
-        }
-
-        function logout() {
-            clienteActual = null;
-            carrito = {};
-            document.getElementById('app-container').classList.add('hidden');
-            document.getElementById('login-container').classList.remove('hidden');
-            document.getElementById('usuario').value = '';
-            document.getElementById('password').value = '';
-        }
-
-        function cambiarTabCliente(tab) {
-            document.getElementById('sec-catalogo').classList.add('hidden');
-            document.getElementById('sec-mis-pedidos').classList.add('hidden');
-            document.getElementById('btn-tab-catalogo').className = "bg-gray-200 text-gray-700 px-4 py-2 rounded font-medium hover:bg-gray-300 transition";
-            document.getElementById('btn-tab-mis-pedidos').className = "bg-gray-200 text-gray-700 px-4 py-2 rounded font-medium hover:bg-gray-300 transition";
-
-            if(tab === 'catalogo') {
-                document.getElementById('sec-catalogo').classList.remove('hidden');
-                document.getElementById('btn-tab-catalogo').className = "bg-blue-600 text-white px-4 py-2 rounded font-medium transition";
-            } else if(tab === 'mis-pedidos') {
-                document.getElementById('sec-mis-pedidos').classList.remove('hidden');
-                document.getElementById('btn-tab-mis-pedidos').className = "bg-blue-600 text-white px-4 py-2 rounded font-medium transition";
-                cargarMisPedidos();
-            }
+            document.getElementById('badge-lista').innerText = `Lista de Precios Activa #${tipoLista}`;
         }
 
         async function cargarProductos() {
-            const res = await fetch(`/api/productos?tipo_precio=${clienteActual.tipo_precio}`);
-            productos = await res.json();
-            const grid = document.getElementById('productos-grid');
-            grid.innerHTML = '';
+            obtenerListaDeURL();
+            try {
+                const res = await fetch(`/api/productos?tipo_precio=${tipoLista}`);
+                productos = await res.json();
+                const grid = document.getElementById('productos-grid');
+                grid.innerHTML = '';
 
-            productos.forEach(p => {
-                grid.innerHTML += `
-                    <div class="bg-white p-4 rounded-lg shadow flex flex-col justify-between">
-                        <div>
-                            <h3 class="font-bold text-gray-800">${p.nombre}</h3>
-                            <p class="text-sm text-gray-500">Stock disponible: ${p.stock}</p>
-                            <p class="text-lg font-bold text-blue-600 mt-2">$${p.precio}</p>
+                productos.forEach(p => {
+                    grid.innerHTML += `
+                        <div class="bg-white p-4 rounded-lg shadow flex flex-col justify-between">
+                            <div>
+                                <h3 class="font-bold text-gray-800">${p.nombre}</h3>
+                                <p class="text-sm text-gray-500">Stock disponible: ${p.stock}</p>
+                                <p class="text-lg font-bold text-blue-600 mt-2">$${p.precio}</p>
+                            </div>
+                            <div class="mt-4 flex items-center space-x-2">
+                                <input type="number" id="cant-${p.id}" value="1" min="1" max="${p.stock}" class="border p-1 w-16 rounded text-center text-sm">
+                                <button onclick="agregarAlCarrito(${p.id})" class="flex-grow bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded text-sm font-medium transition">Agregar</button>
+                            </div>
                         </div>
-                        <div class="mt-4 flex items-center space-x-2">
-                            <input type="number" id="cant-${p.id}" value="1" min="1" max="${p.stock}" class="border p-1 w-16 rounded text-center">
-                            <button onclick="agregarAlCarrito(${p.id})" class="flex-grow bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded text-sm font-medium transition">Agregar</button>
-                        </div>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            } catch (err) {
+                console.error("Error al cargar productos", err);
+            }
         }
 
         function agregarAlCarrito(id) {
@@ -232,6 +147,13 @@
         }
 
         async function enviarPedido() {
+            const nombreComercio = document.getElementById('nombre-comercio').value.trim();
+            if(!nombreComercio) {
+                alert('Por favor, ingresa el nombre de tu comercio antes de enviar el pedido.');
+                document.getElementById('nombre-comercio').focus();
+                return;
+            }
+
             const ids = Object.keys(carrito);
             if(ids.length === 0) {
                 alert('El carrito está vacío');
@@ -243,69 +165,33 @@
                 cantidad: carrito[id].cantidad
             }));
 
-            const res = await fetch('/api/pedidos', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    cliente_id: clienteActual.id,
-                    items: items
-                })
-            });
+            try {
+                const res = await fetch('/api/pedidos', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        cliente_nombre: nombreComercio,
+                        lista_precio: tipoLista,
+                        items: items
+                    })
+                });
 
-            if(res.ok) {
-                alert('¡Pedido registrado con éxito!');
-                carrito = {};
-                renderizarCarrito();
-                cargarProductos();
-            } else {
-                const err = await res.json();
-                alert('Error al registrar pedido: ' + (err.detail || 'Stock insuficiente'));
-            }
-        }
-
-        async function cargarMisPedidos() {
-            const res = await fetch(`/api/pedidos?cliente_id=${clienteActual.id}`);
-            const pedidos = await res.json();
-            const tbody = document.getElementById('tabla-mis-pedidos-body');
-            tbody.innerHTML = '';
-
-            if(pedidos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No has realizado ningún pedido</td></tr>`;
-                return;
-            }
-
-            pedidos.forEach(p => {
-                let botonBorrar = '';
-                // Permitir borrar sólo si el estado es pendiente por error del cliente
-                if(p.estado === 'pendiente') {
-                    botonBorrar = `<button onclick="borrarMiPedido(${p.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition">Cancelar pedido</button>`;
+                if(res.ok) {
+                    alert('¡Pedido registrado con éxito! Nos pondremos en contacto a la brevedad.');
+                    carrito = {};
+                    renderizarCarrito();
+                    cargarProductos();
                 } else {
-                    botonBorrar = `<span class="text-gray-400 text-xs">No modificable</span>`;
+                    const err = await res.json();
+                    alert('Error al registrar pedido: ' + (err.detail || 'Stock insuficiente'));
                 }
-
-                tbody.innerHTML += `
-                    <tr class="border-b text-sm">
-                        <td class="p-3 border font-bold">#${p.id}</td>
-                        <td class="p-3 border text-xs text-gray-600">${p.fecha}</td>
-                        <td class="p-3 border">${p.detalle}</td>
-                        <td class="p-3 border capitalize font-medium text-blue-600">${p.estado}</td>
-                        <td class="p-3 border text-center">${botonBorrar}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        async function borrarMiPedido(id) {
-            if(!confirm(`¿Estás seguro de cancelar el pedido #${id}?`)) return;
-            const res = await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
-            if(res.ok) {
-                alert('Pedido cancelado correctamente');
-                cargarMisPedidos();
-                cargarProductos(); // Refrescar stock visualmente
-            } else {
-                alert('No se pudo cancelar el pedido');
+            } catch (e) {
+                alert('Hubo un error de conexión con el servidor.');
             }
         }
+
+        // Cargar productos al iniciar la página
+        cargarProductos();
     </script>
 </body>
 </html>
