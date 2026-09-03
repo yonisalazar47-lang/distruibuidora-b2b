@@ -25,7 +25,10 @@
                         <th class="p-2">ID</th>
                         <th class="p-2">Nombre</th>
                         <th class="p-2">Stock</th>
-                        <th class="p-2">Precio</th>
+                        <th class="p-2">Lista 1</th>
+                        <th class="p-2">Lista 2</th>
+                        <th class="p-2">Lista 3</th>
+                        <th class="p-2">Lista 4</th>
                     </tr>
                 </thead>
                 <tbody id="tabla-prod"></tbody>
@@ -36,11 +39,13 @@
         <div id="tab-pedidos" class="hidden space-y-4">
             <div class="flex space-x-4">
                 <input type="text" id="buscar-cliente" oninput="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded w-1/2">
+                
+                <!-- Solapa de filtrado por estado -->
                 <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded">
                     <option value="todos">Todos los estados</option>
-                    <option value="pendiente">Pendientes</option>
-                    <option value="entregado">Entregados</option>
+                    <option value="pendiente" selected>Pendientes</option>
                     <option value="procesando">En proceso</option>
+                    <option value="entregado">Entregados</option>
                 </select>
             </div>
 
@@ -60,7 +65,7 @@
     </div>
 
     <script>
-        let pedidos = [];
+        let pedidosOriginales = [];
 
         function verTab(tab) {
             document.getElementById('tab-productos').classList.toggle('hidden', tab !== 'productos');
@@ -70,38 +75,53 @@
         }
 
         async function cargarProductos() {
-            const res = await fetch('/api/productos');
-            const data = await res.json();
-            const tbody = document.getElementById('tabla-prod');
-            tbody.innerHTML = data.map(p => `
-                <tr class="border-b">
-                    <td class="p-2">${p.id}</td>
-                    <td class="p-2">${p.nombre}</td>
-                    <td class="p-2">${p.stock}</td>
-                    <td class="p-2">$${p.precio ?? p.precio_1 ?? 0}</td>
-                </tr>
-            `).join('');
+            try {
+                const res = await fetch('/api/productos');
+                const data = await res.json();
+                const tbody = document.getElementById('tabla-prod');
+                tbody.innerHTML = data.map(p => `
+                    <tr class="border-b">
+                        <td class="p-2">${p.id}</td>
+                        <td class="p-2">${p.nombre}</td>
+                        <td class="p-2">${p.stock}</td>
+                        <td class="p-2">$${p.precio_1 ?? 0}</td>
+                        <td class="p-2">$${p.precio_2 ?? 0}</td>
+                        <td class="p-2">$${p.precio_3 ?? 0}</td>
+                        <td class="p-2">$${p.precio_4 ?? 0}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error("Error al cargar productos:", e);
+            }
         }
 
         async function cargarPedidos() {
-            const res = await fetch('/api/pedidos');
-            pedidos = await res.json();
-            filtrarPedidos();
+            try {
+                const res = await fetch('/api/pedidos');
+                pedidosOriginales = await res.json();
+                filtrarPedidos();
+            } catch (e) {
+                console.error("Error al cargar pedidos:", e);
+            }
         }
 
         function filtrarPedidos() {
-            const busqueda = document.getElementById('buscar-cliente').value.toLowerCase();
-            const estado = document.getElementById('filtro-estado').value.toLowerCase();
+            const busqueda = document.getElementById('buscar-cliente').value.toLowerCase().trim();
+            const filtroEstado = document.getElementById('filtro-estado').value.toLowerCase().trim();
 
-            const filtrados = pedidos.filter(p => {
-                const matchCliente = (p.cliente || '').toLowerCase().includes(busqueda);
-                const matchEstado = (estado === 'todos') || (p.estado || '').toLowerCase().includes(estado);
-                return matchCliente && matchEstado;
+            const filtrados = pedidosOriginales.filter(p => {
+                const cliente = (p.cliente || '').toLowerCase();
+                const estado = (p.estado || 'pendiente').toLowerCase();
+
+                const coincideCliente = cliente.includes(busqueda);
+                const coincideEstado = (filtroEstado === 'todos') || estado.includes(filtroEstado);
+
+                return coincideCliente && coincideEstado;
             });
 
             const tbody = document.getElementById('tabla-pedidos');
             if (filtrados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">No hay pedidos para mostrar</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No hay pedidos para mostrar.</td></tr>`;
                 return;
             }
 

@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3
+from init_db import init_db
+
+# Crea las tablas al arrancar
+init_db()
 
 app = FastAPI()
 
@@ -36,15 +40,6 @@ def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado_data.estado, pedido_id))
-    conn.commit()
-    conn.close()
-    return {"ok": True}
-
-@app.delete("/api/pedidos/{pedido_id}")
-def eliminar_pedido(pedido_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
     conn.commit()
     conn.close()
     return {"ok": True}
