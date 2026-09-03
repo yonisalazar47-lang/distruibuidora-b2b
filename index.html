@@ -1,197 +1,81 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Pedidos - Distribuidora Don Vitorio</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+import sqlite3
+from init_db import init_db
 
-    <!-- Navbar -->
-    <nav class="bg-blue-600 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div>
-                <h1 class="text-lg font-bold">Distribuidora Don Vitorio</h1>
-                <span id="badge-lista" class="text-xs bg-blue-700 px-2 py-0.5 rounded">Cargando lista de precios...</span>
-            </div>
-            <a href="admin.html" class="text-xs text-blue-200 hover:text-white underline">Acceso Admin</a>
-        </div>
-    </nav>
+# Crea e inicializa las tablas al arrancar
+init_db()
 
-    <!-- Contenido Principal -->
-    <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow w-full">
-        <!-- Productos -->
-        <div class="md:col-span-2 space-y-4">
-            <h2 class="text-xl font-bold text-gray-800">Catálogo de Productos</h2>
-            <div id="productos-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- Se carga por JS -->
-            </div>
-        </div>
+app = FastAPI()
 
-        <!-- Carrito -->
-        <div class="bg-white p-6 rounded-lg shadow-md h-fit space-y-4 sticky top-6">
-            <h2 class="text-xl font-bold text-gray-800 border-b pb-2">Tu Pedido Actual</h2>
-            
-            <div class="space-y-2">
-                <label class="block text-sm font-bold text-gray-700">Nombre de tu Comercio / Negocio:</label>
-                <input type="text" id="nombre-comercio" placeholder="Ej: Kiosco Don Juan" required class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
+# Modelos de datos
+class EstadoPedido(BaseModel):
+    estado: str
 
-            <div id="carrito-lista" class="space-y-2 max-h-60 overflow-y-auto border-t pt-2">
-                <p class="text-gray-500 text-sm">El carrito está vacío</p>
-            </div>
-            <div class="border-t pt-4 flex justify-between font-bold text-lg">
-                <span>Total:</span>
-                <span id="carrito-total">$0.00</span>
-            </div>
-            <button onclick="enviarPedido()" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded font-bold transition">Confirmar y Enviar Pedido</button>
-        </div>
-    </main>
+class ProductoCreate(BaseModel):
+    nombre: str
+    stock: int
+    precio_1: float
+    precio_2: float
+    precio_3: float
+    precio_4: float
 
-    <script>
-        let productos = [];
-        let carrito = {};
-        let tipoLista = "1";
+def get_db_connection():
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-        // 1. Detectar el parámetro ?lista=X de la URL antes de nada
-        function obtenerListaDeURL() {
-            const params = new URLSearchParams(window.location.search);
-            const lista = params.get('lista');
-            if (lista && ["1", "2", "3", "4"].includes(lista)) {
-                tipoLista = lista;
-            }
-            document.getElementById('badge-lista').innerText = `Lista de Precios Activa #${tipoLista}`;
-        }
+# --- ENDPOINTS PRODUCTOS ---
 
-        async function cargarProductos() {
-            obtenerListaDeURL(); // Asegurar que lee la lista correcta
-            try {
-                const res = await fetch(`/api/productos?tipo_precio=${tipoLista}`);
-                productos = await res.json();
-                const grid = document.getElementById('productos-grid');
-                grid.innerHTML = '';
+@app.get("/api/productos")
+def obtener_productos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM productos")
+    productos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return productos
 
-                productos.forEach(p => {
-                    grid.innerHTML += `
-                        <div class="bg-white p-4 rounded-lg shadow flex flex-col justify-between">
-                            <div>
-                                <h3 class="font-bold text-gray-800">${p.nombre}</h3>
-                                <p class="text-sm text-gray-500">Stock disponible: ${p.stock}</p>
-                                <p class="text-lg font-bold text-blue-600 mt-2">$${p.precio}</p>
-                            </div>
-                            <div class="mt-4 flex items-center space-x-2">
-                                <input type="number" id="cant-${p.id}" value="1" min="1" max="${p.stock}" class="border p-1 w-16 rounded text-center text-sm">
-                                <button onclick="agregarAlCarrito(${p.id})" class="flex-grow bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded text-sm font-medium transition">Agregar</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            } catch (err) {
-                console.error("Error al cargar productos", err);
-            }
-        }
+@app.post("/api/productos")
+def crear_producto(prod: ProductoCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
-        function agregarAlCarrito(id) {
-            const prod = productos.find(p => p.id === id);
-            const cantidad = parseInt(document.getElementById(`cant-${id}`).value);
+# --- ENDPOINTS PEDIDOS ---
 
-            if(cantidad > prod.stock) {
-                alert('La cantidad supera el stock disponible');
-                return;
-            }
+@app.get("/api/pedidos")
+def obtener_pedidos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM pedidos ORDER BY id DESC")
+    pedidos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return pedidos
 
-            if(carrito[id]) {
-                carrito[id].cantidad += cantidad;
-            } else {
-                carrito[id] = { ...prod, cantidad };
-            }
-            renderizarCarrito();
-        }
+@app.put("/api/pedidos/{pedido_id}/estado")
+def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado_data.estado, pedido_id))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
-        function renderizarCarrito() {
-            const lista = document.getElementById('carrito-lista');
-            lista.innerHTML = '';
-            let total = 0;
+@app.delete("/api/pedidos/{pedido_id}")
+def eliminar_pedido(pedido_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
-            const ids = Object.keys(carrito);
-            if(ids.length === 0) {
-                lista.innerHTML = '<p class="text-gray-500 text-sm">El carrito está vacío</p>';
-                document.getElementById('carrito-total').innerText = '$0.00';
-                return;
-            }
-
-            ids.forEach(id => {
-                const item = carrito[id];
-                const subtotal = item.precio * item.cantidad;
-                total += subtotal;
-                lista.innerHTML += `
-                    <div class="flex justify-between items-center text-sm border-b pb-2">
-                        <div>
-                            <p class="font-medium">${item.nombre}</p>
-                            <p class="text-xs text-gray-500">${item.cantidad} x $${item.precio}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold">$${subtotal.toFixed(2)}</p>
-                            <button onclick="eliminarDelCarrito(${id})" class="text-red-500 text-xs hover:underline">Eliminar</button>
-                        </div>
-                    </div>
-                `;
-            });
-            document.getElementById('carrito-total').innerText = `$${total.toFixed(2)}`;
-        }
-
-        function eliminarDelCarrito(id) {
-            delete carrito[id];
-            renderizarCarrito();
-        }
-
-        async function enviarPedido() {
-            const nombreComercio = document.getElementById('nombre-comercio').value.trim();
-            if(!nombreComercio) {
-                alert('Por favor, ingresa el nombre de tu comercio antes de enviar el pedido.');
-                document.getElementById('nombre-comercio').focus();
-                return;
-            }
-
-            const ids = Object.keys(carrito);
-            if(ids.length === 0) {
-                alert('El carrito está vacío');
-                return;
-            }
-
-            const items = ids.map(id => ({
-                producto_id: parseInt(id),
-                cantidad: carrito[id].cantidad
-            }));
-
-            try {
-                const res = await fetch('/api/pedidos', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        cliente_nombre: nombreComercio,
-                        lista_precio: tipoLista,
-                        items: items
-                    })
-                });
-
-                if(res.ok) {
-                    alert('¡Pedido registrado con éxito! Nos pondremos en contacto a la brevedad.');
-                    carrito = {};
-                    renderizarCarrito();
-                    cargarProductos();
-                } else {
-                    const err = await res.json();
-                    alert('Error al registrar pedido: ' + (err.detail || 'Stock insuficiente'));
-                }
-            } catch (e) {
-                alert('Hubo un error de conexión con el servidor.');
-            }
-        }
-
-        // Inicializar cargando productos y detectando la lista al abrir la página
-        cargarProductos();
-    </script>
-</body>
-</html>
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
