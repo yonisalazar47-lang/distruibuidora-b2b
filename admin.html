@@ -9,7 +9,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col">
 
     <!-- Navbar -->
-    <nav class="bg-blue-700 text-white shadow-md">
+    <nav class="bg-blue-700 text-white shadow-md print:hidden">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <h1 class="text-lg font-bold">Panel Administrador - Don Vitorio</h1>
             <a href="/" class="text-xs bg-blue-800 hover:bg-blue-900 px-3 py-1.5 rounded transition">Ver Portal Clientes</a>
@@ -20,7 +20,7 @@
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
 
         <!-- Navegación de Pestañas -->
-        <div class="flex border-b border-gray-200 bg-white rounded-t-lg px-4 pt-2 space-x-2">
+        <div class="flex border-b border-gray-200 bg-white rounded-t-lg px-4 pt-2 space-x-2 print:hidden">
             <button id="tab-btn-productos" onclick="cambiarTab('productos')" class="py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none">
                 Gestión de Productos
             </button>
@@ -91,7 +91,7 @@
 
         <!-- SECCIÓN 2: HISTORIAL Y CONTROL DE PEDIDOS -->
         <div id="tab-pedidos" class="hidden space-y-6">
-            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+            <div class="bg-white p-6 rounded-lg shadow-md space-y-4 print:hidden">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Filtros de Búsqueda</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -111,7 +111,18 @@
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
-                <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Lista de Pedidos</h2>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
+                    <h2 class="text-lg font-bold text-gray-800">Lista de Pedidos</h2>
+                    <div class="flex space-x-2 print:hidden">
+                        <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center gap-1">
+                            📊 Exportar Excel
+                        </button>
+                        <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center gap-1">
+                            📄 Exportar PDF / Imprimir
+                        </button>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-gray-100 text-gray-700 uppercase text-xs">
@@ -121,7 +132,7 @@
                                 <th class="p-3">Lista</th>
                                 <th class="p-3">Detalle del Pedido</th>
                                 <th class="p-3">Estado</th>
-                                <th class="p-3">Acciones</th>
+                                <th class="p-3 print:hidden">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-pedidos-body">
@@ -136,6 +147,7 @@
 
     <script>
         let pedidosOriginales = [];
+        let pedidosFiltradosActuales = [];
 
         function cambiarTab(tab) {
             if (tab === 'productos') {
@@ -221,15 +233,19 @@
 
         function aplicarFiltrosPedidos() {
             const clienteFiltro = document.getElementById('filtro-cliente').value.toLowerCase().trim();
-            const estadoFiltro = document.getElementById('filtro-estado').value;
+            const estadoFiltro = document.getElementById('filtro-estado').value.toLowerCase().trim();
 
-            const pedidosFiltrados = pedidosOriginales.filter(p => {
-                const coincideCliente = (p.cliente || '').toLowerCase().includes(clienteFiltro);
-                const coincideEstado = (estadoFiltro === 'todos') || (p.estado === estadoFiltro);
+            pedidosFiltradosActuales = pedidosOriginales.filter(p => {
+                const clientePedido = (p.cliente || '').toLowerCase();
+                const estadoPedido = (p.estado || '').toLowerCase().trim();
+
+                const coincideCliente = clientePedido.includes(clienteFiltro);
+                const coincideEstado = (estadoFiltro === 'todos') || (estadoPedido === estadoFiltro);
+
                 return coincideCliente && coincideEstado;
             });
 
-            renderizarTablaPedidos(pedidosFiltrados);
+            renderizarTablaPedidos(pedidosFiltradosActuales);
         }
 
         function renderizarTablaPedidos(pedidos) {
@@ -242,9 +258,10 @@
             }
 
             pedidos.forEach(p => {
+                const estadoLimpio = (p.estado || '').toLowerCase().trim();
                 let badgeColor = "bg-yellow-100 text-yellow-800";
-                if(p.estado === 'procesando') badgeColor = "bg-blue-100 text-blue-800";
-                if(p.estado === 'entregado') badgeColor = "bg-green-100 text-green-800";
+                if(estadoLimpio === 'procesando') badgeColor = "bg-blue-100 text-blue-800";
+                if(estadoLimpio === 'entregado') badgeColor = "bg-green-100 text-green-800";
 
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
@@ -254,12 +271,12 @@
                         <td class="p-3 text-xs text-gray-600">${p.detalle}</td>
                         <td class="p-3">
                             <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
-                                <option value="pendiente" ${p.estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-                                <option value="procesando" ${p.estado === 'procesando' ? 'selected' : ''}>Procesando</option>
-                                <option value="entregado" ${p.estado === 'entregado' ? 'selected' : ''}>Entregado</option>
+                                <option value="pendiente" ${estadoLimpio === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="procesando" ${estadoLimpio === 'procesando' ? 'selected' : ''}>Procesando</option>
+                                <option value="entregado" ${estadoLimpio === 'entregado' ? 'selected' : ''}>Entregado</option>
                             </select>
                         </td>
-                        <td class="p-3">
+                        <td class="p-3 print:hidden">
                             <button onclick="eliminarPedido(${p.id})" class="text-red-600 hover:underline text-xs font-bold">Eliminar</button>
                         </td>
                     </tr>
@@ -294,7 +311,33 @@
             }
         }
 
-        // Cargar productos por defecto al iniciar
+        function exportarExcel() {
+            if (pedidosFiltradosActuales.length === 0) {
+                alert("No hay pedidos para exportar.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,ID,Cliente/Comercio,Lista de Precio,Detalle,Estado\n";
+
+            pedidosFiltradosActuales.forEach(p => {
+                const detalleLimpio = `"${(p.detalle || '').replace(/"/g, '""')}"`;
+                const clienteLimpio = `"${(p.cliente || '').replace(/"/g, '""')}"`;
+                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio},${detalleLimpio},${p.estado}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `pedidos_don_vitorio_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportarPDF() {
+            window.print();
+        }
+
         cargarProductosAdmin();
     </script>
 </body>
