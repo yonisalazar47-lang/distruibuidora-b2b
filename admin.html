@@ -98,7 +98,7 @@
                         <label class="block text-xs font-bold text-gray-700 uppercase">Filtrar por Estado</label>
                         <select id="filtro-estado" onchange="aplicarFiltrosPedidos()" class="w-full border p-2 rounded text-sm mt-1">
                             <option value="todos">Todos los estados</option>
-                            <option value="pendiente">Pendiente</option>
+                            <option value="pendiente" selected>Pendiente</option>
                             <option value="procesando">Procesando</option>
                             <option value="entregado">Entregado</option>
                         </select>
@@ -160,7 +160,7 @@
 
         async function cargarProductosAdmin() {
             try {
-                const res = await fetch('/api/productos-admin');
+                const res = await fetch('/api/productos');
                 const productos = await res.json();
                 const tbody = document.getElementById('tabla-productos-body');
                 tbody.innerHTML = '';
@@ -225,10 +225,26 @@
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
                 const clientePedido = String(p.cliente || p.comercio || '').toLowerCase().trim();
-                let estadoPedido = String(p.estado || 'pendiente').toLowerCase().trim();
+                
+                // Si el backend no envía el estado, asumimos que es 'pendiente'
+                let estadoPedido = String(p.estado || p.estado_pedido || p.status || 'pendiente').toLowerCase().trim();
+                if (estadoPedido === 'null' || estadoPedido === 'undefined' || estadoPedido === '') {
+                    estadoPedido = 'pendiente';
+                }
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
-                const coincideEstado = (estadoFiltro === 'todos') || (estadoPedido === estadoFiltro) || (estadoFiltro === 'pendiente' && (!p.estado || estadoPedido === ''));
+                
+                // Si busca 'pendiente', acepta 'pendiente' o valores no definidos
+                let coincideEstado = (estadoFiltro === 'todos');
+                if (!coincideEstado) {
+                    if (estadoFiltro === 'pendiente') {
+                        coincideEstado = (estadoPedido === 'pendiente' || estadoPedido.includes('pen'));
+                    } else if (estadoFiltro === 'procesando') {
+                        coincideEstado = (estadoPedido === 'procesando' || estadoPedido.includes('pro'));
+                    } else if (estadoFiltro === 'entregado') {
+                        coincideEstado = (estadoPedido === 'entregado' || estadoPedido.includes('ent'));
+                    }
+                }
 
                 return coincideCliente && coincideEstado;
             });
@@ -246,11 +262,18 @@
             }
 
             pedidos.forEach(p => {
-                let est = String(p.estado || 'pendiente').toLowerCase().trim();
-                let badgeColor = "bg-yellow-100 text-yellow-800";
+                let estVal = String(p.estado || p.estado_pedido || p.status || 'pendiente').toLowerCase().trim();
                 
-                if (est === 'procesando') badgeColor = "bg-blue-100 text-blue-800";
-                if (est === 'entregado') badgeColor = "bg-green-100 text-green-800";
+                let badgeColor = "bg-yellow-100 text-yellow-800";
+                let opcionSeleccionada = "Pendiente";
+
+                if (estVal.includes('pro')) {
+                    badgeColor = "bg-blue-100 text-blue-800";
+                    opcionSeleccionada = "Procesando";
+                } else if (estVal.includes('ent')) {
+                    badgeColor = "bg-green-100 text-green-800";
+                    opcionSeleccionada = "Entregado";
+                }
 
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
@@ -260,9 +283,9 @@
                         <td class="p-3 text-xs text-gray-600">${p.detalle || ''}</td>
                         <td class="p-3">
                             <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
-                                <option value="pendiente" ${est === 'pendiente' || !p.estado ? 'selected' : ''}>Pendiente</option>
-                                <option value="procesando" ${est === 'procesando' ? 'selected' : ''}>Procesando</option>
-                                <option value="entregado" ${est === 'entregado' ? 'selected' : ''}>Entregado</option>
+                                <option value="Pendiente" ${opcionSeleccionada === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Procesando" ${opcionSeleccionada === 'Procesando' ? 'selected' : ''}>Procesando</option>
+                                <option value="Entregado" ${opcionSeleccionada === 'Entregado' ? 'selected' : ''}>Entregado</option>
                             </select>
                         </td>
                         <td class="p-3 print:hidden">
@@ -311,7 +334,7 @@
             pedidosFiltradosActuales.forEach(p => {
                 const detalleLimpio = `"${(p.detalle || '').replace(/"/g, '""')}"`;
                 const clienteLimpio = `"${(p.cliente || p.comercio || '').replace(/"/g, '""')}"`;
-                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio || p.lista || 1},${detalleLimpio},${p.estado || 'pendiente'}\n`;
+                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio || p.lista || 1},${detalleLimpio},${p.estado || 'Pendiente'}\n`;
             });
 
             const encodedUri = encodeURI(csvContent);
