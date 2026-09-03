@@ -53,6 +53,7 @@ def startup_event():
             END $$;
         """)
 
+    # Crear tabla de pedidos si no existe
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id SERIAL PRIMARY KEY,
@@ -62,6 +63,16 @@ def startup_event():
             estado TEXT DEFAULT 'pendiente',
             fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
+    """)
+
+    # Asegurar que exista la columna lista_precio en la tabla pedidos
+    cursor.execute("""
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pedidos' AND column_name='lista_precio') THEN
+                ALTER TABLE pedidos ADD COLUMN lista_precio TEXT DEFAULT '1';
+            END IF;
+        END $$;
     """)
     
     cursor.execute("SELECT COUNT(*) as total FROM productos")
