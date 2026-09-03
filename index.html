@@ -10,8 +10,7 @@ async function enviarPedido() {
         return;
     }
 
-    // ⚠️ REEMPLAZA ESTE NÚMERO POR TU NÚMERO REAL DE WHATSAPP CON CÓDIGO DE PAÍS ⚠️
-    // Ejemplo Argentina: 5492984746691 (Sin el signo + y sin guiones)
+    // Coloca tu número de WhatsApp real con código de país (Ej: 5491122334455)
     const MI_WHATSAPP = "5492984746691"; 
 
     const total = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
@@ -30,7 +29,7 @@ async function enviarPedido() {
         });
 
         if (res.ok) {
-            // Construir texto formateado para WhatsApp
+            // Construye la URL de WhatsApp
             let mensajeWA = `🛒 *NUEVO PEDIDO B2B*\n`;
             mensajeWA += `👤 *Cliente:* ${cliente}\n`;
             mensajeWA += `📋 *Lista:* #${numLista}\n\n`;
@@ -40,11 +39,15 @@ async function enviarPedido() {
             });
             mensajeWA += `\n💰 *TOTAL:* $${total.toFixed(2)}`;
 
-            // URL directa api.whatsapp.com para evitar bloqueos
-            const urlWA = `https://api.whatsapp.com/send?phone=${MI_WHATSAPP}&text=${encodeURIComponent(mensajeWA)}`;
-            
-            // Redirigir en la misma pestaña
-            window.location.href = urlWA;
+            const urlWA = `https://wa.me/${MI_WHATSAPP}?text=${encodeURIComponent(mensajeWA)}`;
+
+            // Limpiar carrito
+            carrito = [];
+            document.getElementById('nombre-cliente').value = '';
+            renderizarCarrito();
+
+            // Redirige directamente al hacer clic
+            window.location.assign(urlWA);
         } else {
             alert('Ocurrió un error al registrar el pedido.');
         }
