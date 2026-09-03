@@ -42,12 +42,12 @@ def startup_event():
         )
     """)
     
-    # Asegurar que existan las columnas de precios por si la tabla ya existía
+    # Asegurar columnas de precios por si la tabla ya existía
     for col in ["precio_1", "precio_2", "precio_3", "precio_4"]:
         cursor.execute(f"""
             DO $$ 
             BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='productos'وراق column_name='{col}') THEN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='productos' AND column_name='{col}') THEN
                     ALTER TABLE productos ADD COLUMN {col} REAL NOT NULL DEFAULT 0;
                 END IF;
             END $$;
