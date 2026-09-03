@@ -63,7 +63,6 @@ def crear_producto(prod: ProductoCreate):
         conn.close()
         return {"id": nuevo_id, "mensaje": "Producto creado con éxito"}
     except Exception as e:
-        # Esto te mostrará el error exacto de PostgreSQL en la alerta del navegador
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/productos/{producto_id}/stock")
@@ -83,7 +82,13 @@ def actualizar_stock(producto_id: int, stock_data: StockUpdate):
 def listar_pedidos():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM pedidos ORDER BY id DESC")
+    # Usamos COALESCE para priorizar el nombre del cliente de la tabla relacional o el campo cliente_nombre
+    cur.execute("""
+        SELECT pedidos.*, COALESCE(clientes.nombre, pedidos.cliente_nombre, 'Cliente General') AS cliente 
+        FROM pedidos 
+        LEFT JOIN clientes ON pedidos.cliente_id = clientes.id 
+        ORDER BY pedidos.id DESC
+    """)
     pedidos = cur.fetchall()
     cur.close()
     conn.close()
