@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Any
 import os
 import re
@@ -38,7 +38,8 @@ class EstadoUpdate(BaseModel):
     estado: str
 
 class PedidoCreate(BaseModel):
-    cliente_nombre: Optional[str] = "Cliente General"
+    cliente_nombre: Optional[str] = None
+    cliente: Optional[str] = None
     detalle: Optional[str] = ""
     lista_precio: Optional[Any] = "1"
     estado: Optional[str] = "Pendiente"
@@ -107,23 +108,23 @@ def crear_pedido(pedido: PedidoCreate):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        c_nombre = str(pedido.cliente_nombre or "Cliente General")
+        # Tomamos el nombre ya sea que venga como cliente_nombre o como cliente
+        nombre_final = pedido.cliente_nombre or pedido.cliente or "Cliente General"
         c_detalle = str(pedido.detalle or "")
         c_lista = str(pedido.lista_precio or "1")
         c_estado = str(pedido.estado or "Pendiente")
 
-        # 1. Insertamos el pedido
+        # 1. Insertamos el pedido con el nombre correcto del cliente
         cur.execute(
             """
             INSERT INTO pedidos (cliente_nombre, detalle, lista_precio, estado) 
             VALUES (%s, %s, %s, %s) RETURNING id
             """,
-            (c_nombre, c_detalle, c_lista, c_estado)
+            (nombre_final, c_detalle, c_lista, c_estado)
         )
         nuevo_id = cur.fetchone()["id"]
 
-        # 2. Descontamos automáticamente el stock según el detalle (Ej: "[ID:1] 2x Harina...")
-        # Buscamos coincidencias del patrón [ID:X] y cantidad Xx
+        # 2. Descontamos automáticamente el stock según el detalle
         items = re.findall(r'\[ID:(\d+)\]\s*(\d+)x', c_detalle)
         for prod_id_str, cantidad_str in items:
             prod_id = int(prod_id_str)
