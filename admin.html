@@ -143,14 +143,14 @@
             tbody.innerHTML = lista.map(p => `
                 <tr>
                     <td class="p-3 font-bold">#${p.id}</td>
-                    <td class="p-3 font-semibold">${p.cliente}</td>
+                    <td class="p-3 font-semibold">${p.cliente || p.cliente_nombre || 'Cliente General'}</td>
                     <td class="p-3">Lista ${p.lista_precio}</td>
                     <td class="p-3 text-xs max-w-xs">${p.detalle}</td>
                     <td class="p-3">
                         <select onchange="actualizarEstado(${p.id}, this.value)" class="border rounded p-1 text-xs">
-                            <option value="pendiente" ${p.estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="en proceso" ${p.estado === 'en proceso' ? 'selected' : ''}>En proceso</option>
-                            <option value="entregado" ${p.estado === 'entregado' ? 'selected' : ''}>Entregado</option>
+                            <option value="Pendiente" ${p.estado && p.estado.toLowerCase() === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                            <option value="En proceso" ${p.estado && p.estado.toLowerCase() === 'en proceso' ? 'selected' : ''}>En proceso</option>
+                            <option value="Entregado" ${p.estado && p.estado.toLowerCase() === 'entregado' ? 'selected' : ''}>Entregado</option>
                         </select>
                     </td>
                     <td class="p-3">
@@ -162,11 +162,15 @@
 
         function filtrarPedidos() {
             const busqueda = document.getElementById('buscar-pedido').value.toLowerCase();
-            const estado = document.getElementById('filtro-estado').value;
+            const estado = document.getElementById('filtro-estado').value.toLowerCase();
 
             const filtrados = pedidosCache.filter(p => {
-                const coincideCliente = p.cliente.toLowerCase().includes(busqueda);
-                const coincideEstado = estado === '' || p.estado === estado;
+                const clienteVal = (p.cliente || p.cliente_nombre || '').toLowerCase();
+                const coincideCliente = clienteVal.includes(busqueda);
+                
+                const estadoPedido = (p.estado || '').toLowerCase();
+                const coincideEstado = estado === '' || estadoPedido === estado;
+                
                 return coincideCliente && coincideEstado;
             });
             renderizarPedidos(filtrados);
@@ -191,7 +195,7 @@
             if (pedidosCache.length === 0) return alert('No hay pedidos para exportar.');
             const datosFormat = pedidosCache.map(p => ({
                 ID: p.id,
-                Cliente: p.cliente,
+                Cliente: p.cliente || p.cliente_nombre || 'Cliente General',
                 Lista: p.lista_precio,
                 Detalle: p.detalle,
                 Estado: p.estado
@@ -209,7 +213,7 @@
             doc.text("Reporte de Pedidos - Distribuidora Don Vitorio", 14, 15);
             
             const columnas = ["# ID", "Cliente", "Lista", "Detalle", "Estado"];
-            const filas = pedidosCache.map(p => [p.id, p.cliente, `Lista ${p.lista_precio}`, p.detalle, p.estado]);
+            const filas = pedidosCache.map(p => [p.id, p.cliente || p.cliente_nombre || 'Cliente General', `Lista ${p.lista_precio}`, p.detalle, p.estado]);
 
             doc.autoTable({
                 startY: 22,
