@@ -31,9 +31,9 @@
                     <input type="text" id="buscar-pedido" onkeyup="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded text-sm w-full sm:w-64">
                     <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded text-sm">
                         <option value="">Todos los estados</option>
-                        <option value="pendiente">Pendientes</option>
-                        <option value="en proceso">En proceso</option>
-                        <option value="entregado">Entregados</option>
+                        <option value="Pendiente">Pendientes</option>
+                        <option value="En proceso">En proceso</option>
+                        <option value="Entregado">Entregados</option>
                     </select>
                 </div>
                 <!-- Botones Exportar -->
@@ -162,14 +162,14 @@
 
         function filtrarPedidos() {
             const busqueda = document.getElementById('buscar-pedido').value.toLowerCase();
-            const estado = document.getElementById('filtro-estado').value.toLowerCase();
+            const estadoFiltro = document.getElementById('filtro-estado').value.toLowerCase();
 
             const filtrados = pedidosCache.filter(p => {
                 const clienteVal = (p.cliente || p.cliente_nombre || '').toLowerCase();
                 const coincideCliente = clienteVal.includes(busqueda);
                 
                 const estadoPedido = (p.estado || '').toLowerCase();
-                const coincideEstado = estado === '' || estadoPedido === estado;
+                const coincideEstado = estadoFiltro === '' || estadoPedido === estadoFiltro;
                 
                 return coincideCliente && coincideEstado;
             });
