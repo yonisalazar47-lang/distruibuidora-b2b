@@ -54,7 +54,7 @@
         let carrito = {};
         let tipoLista = "1";
 
-        // Detectar el parámetro ?lista=X de la URL
+        // 1. Detectar el parámetro ?lista=X de la URL antes de nada
         function obtenerListaDeURL() {
             const params = new URLSearchParams(window.location.search);
             const lista = params.get('lista');
@@ -65,7 +65,7 @@
         }
 
         async function cargarProductos() {
-            obtenerListaDeURL();
+            obtenerListaDeURL(); // Asegurar que lee la lista correcta
             try {
                 const res = await fetch(`/api/productos?tipo_precio=${tipoLista}`);
                 productos = await res.json();
@@ -190,7 +190,7 @@
             }
         }
 
-        // Cargar productos al iniciar la página
+        // Inicializar cargando productos y detectando la lista al abrir la página
         cargarProductos();
     </script>
 </body>
