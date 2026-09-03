@@ -1,15 +1,17 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import sqlite3
+import os
 from init_db import init_db
 
-# Crea e inicializa las tablas al arrancar
+# Inicializar BD
 init_db()
 
 app = FastAPI()
 
-# Modelos de datos
+# Modelos
 class EstadoPedido(BaseModel):
     estado: str
 
@@ -32,8 +34,17 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- ENDPOINTS PRODUCTOS ---
+# --- RUTA PRINCIPAL ---
+@app.get("/")
+def read_root():
+    # Si tienes un cliente.html o index.html lo sirve como inicio
+    if os.path.exists("cliente.html"):
+        return FileResponse("cliente.html")
+    elif os.path.exists("index.html"):
+        return FileResponse("index.html")
+    return {"status": "API Funcionando"}
 
+# --- PRODUCTOS ---
 @app.get("/api/productos")
 def obtener_productos():
     conn = get_db_connection()
@@ -55,8 +66,7 @@ def crear_producto(prod: ProductoCreate):
     conn.close()
     return {"ok": True}
 
-# --- ENDPOINTS PEDIDOS ---
-
+# --- PEDIDOS ---
 @app.get("/api/pedidos")
 def obtener_pedidos():
     conn = get_db_connection()
@@ -96,4 +106,5 @@ def eliminar_pedido(pedido_id: int):
     conn.close()
     return {"ok": True}
 
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+# Montar archivos estáticos al final sin sobreescribir la raíz
+app.mount("/static", StaticFiles(directory="."), name="static")
