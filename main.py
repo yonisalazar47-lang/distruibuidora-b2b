@@ -2,10 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import os
 import psycopg2
 import psycopg2.extras
+import re
 
 app = FastAPI()
 
@@ -122,6 +123,16 @@ def login_cliente(credenciales: CredencialesLogin):
         "nombre": cliente["nombre"],
         "tipo_precio": cliente["tipo_precio"] if cliente["tipo_precio"] else "1"
     }
+
+@app.get("/api/clientes-lista")
+def listar_clientes_admin():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nombre, usuario, tipo_precio FROM clientes")
+    clientes = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return clientes
 
 @app.get("/api/productos")
 def listar_productos(tipo_precio: str = "1"):
@@ -246,7 +257,7 @@ def registrar_pedido(pedido: PedidoEntrante):
     total_pedido = 0.0
     
     for item in pedido.items:
-        cursor.execute(f"SELECT nombre, stock, precio_{tipo_precio} as precio FROM productos WHERE id = %s", (item.producto_id,))
+        cursor.execute(f"SELECT id, nombre, stock, precio_{tipo_precio} as precio FROM productos WHERE id = %s", (item.producto_id,))
         prod = cursor.fetchone()
         if not prod or prod["stock"] < item.cantidad:
             cursor.close()
@@ -255,7 +266,8 @@ def registrar_pedido(pedido: PedidoEntrante):
         
         subtotal = prod["precio"] * item.cantidad
         total_pedido += subtotal
-        detalle_items.append(f"{item.cantidad}x {prod['nombre']} (${subtotal})")
+        # Guardamos un formato estructurado o texto claro que incluya el ID del producto para luego poder reponer stock si se borra
+        detalle_items.append(f"[ID:{prod['id']}] {item.cantidad}x {prod['nombre']} (${subtotal})")
         
     for item in pedido.items:
         cursor.execute("UPDATE productos SET stock = stock - %s WHERE id = %s", (item.cantidad, item.producto_id))
@@ -274,13 +286,13 @@ def registrar_pedido(pedido: PedidoEntrante):
     return {"mensaje": "Pedido registrado con éxito"}
 
 @app.get("/api/pedidos")
-def listar_pedidos(cliente_id: int = None):
+def listar_pedidos(cliente_id: Optional[int] = None):
     conn = get_db_connection()
     cursor = conn.cursor()
     if cliente_id:
-        cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos WHERE cliente_id = %s ORDER BY id DESC", (cliente_id,))
+        cursor.execute("SELECT id, cliente_id, cliente_nombre, detalle, estado, fecha FROM pedidos WHERE cliente_id = %s ORDER BY id DESC", (cliente_id,))
     else:
-        cursor.execute("SELECT id, cliente_nombre, detalle, estado, fecha FROM pedidos ORDER BY id DESC")
+        cursor.execute("SELECT id, cliente_id, cliente_nombre, detalle, estado, fecha FROM pedidos ORDER BY id DESC")
     pedidos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -288,6 +300,7 @@ def listar_pedidos(cliente_id: int = None):
     return [
         {
             "id": p["id"],
+            "cliente_id": p["cliente_id"],
             "cliente": p["cliente_nombre"],
             "detalle": p["detalle"],
             "estado": p["estado"],
@@ -308,3 +321,32 @@ def actualizar_estado_pedido(pedido_id: int, data: EstadoActualizacion):
     cursor.close()
     conn.close()
     return {"mensaje": "Estado actualizado con éxito"}
+
+@app.delete("/api/pedidos/{pedido_id}")
+def eliminar_pedido(pedido_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Obtener el pedido antes de borrarlo para reponer el stock
+    cursor.execute("SELECT detalle, estado FROM pedidos WHERE id = %s", (pedido_id,))
+    pedido = cursor.fetchone()
+    
+    if not pedido:
+        cursor.close()
+        conn.close()
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+        
+    # Si estaba pendiente (o independientemente si se desea reponer stock al borrar un error), devolvemos las cantidades
+    detalle = pedido["detalle"]
+    # Buscamos patrones como [ID:5] 2x ...
+    matches = re.findall(r'\[ID:(\d+)\]\s+(\d+)x', detalle)
+    for prod_id_str, cantidad_str in matches:
+        prod_id = int(prod_id_str)
+        cantidad = int(cantidad_str)
+        cursor.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (cantidad, prod_id))
+        
+    cursor.execute("DELETE FROM pedidos WHERE id = %s", (pedido_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return {"mensaje": "Pedido eliminado y stock devuelto correctamente"}
