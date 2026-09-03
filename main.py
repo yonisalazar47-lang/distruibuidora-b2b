@@ -30,16 +30,6 @@ def startup_event():
     cursor = conn.cursor()
     
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clientes (
-            id SERIAL PRIMARY KEY,
-            usuario TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            nombre TEXT NOT NULL,
-            tipo_precio TEXT DEFAULT '1'
-        )
-    """)
-    
-    cursor.execute("""
         CREATE TABLE IF NOT EXISTS productos (
             id SERIAL PRIMARY KEY,
             nombre TEXT NOT NULL,
@@ -54,18 +44,13 @@ def startup_event():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id SERIAL PRIMARY KEY,
-            cliente_id INTEGER,
-            cliente_nombre TEXT,
+            cliente_nombre TEXT NOT NULL,
+            lista_precio TEXT DEFAULT '1',
             detalle TEXT,
             estado TEXT DEFAULT 'pendiente',
             fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
-    cursor.execute("SELECT COUNT(*) as total FROM clientes")
-    if cursor.fetchone()["total"] == 0:
-        cursor.execute("INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES ('cliente1', '1234', 'Kiosco Minorista', '1')")
-        cursor.execute("INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES ('cliente2', '1234', 'Super Mayorista S.A.', '2')")
     
     cursor.execute("SELECT COUNT(*) as total FROM productos")
     if cursor.fetchone()["total"] == 0:
@@ -93,46 +78,6 @@ def leer_index():
 def leer_admin():
     with open("admin.html", "r", encoding="utf-8") as f:
         return f.read()
-
-@app.get("/vendedor.html", response_class=HTMLResponse)
-def leer_vendedor():
-    with open("vendedor.html", "r", encoding="utf-8") as f:
-        return f.read()
-
-class CredencialesLogin(BaseModel):
-    usuario: str
-    password: str
-
-@app.post("/api/login")
-def login_cliente(credenciales: CredencialesLogin):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, nombre, tipo_precio FROM clientes WHERE usuario = %s AND password = %s", 
-        (credenciales.usuario, credenciales.password)
-    )
-    cliente = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    
-    if not cliente:
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
-        
-    return {
-        "id": cliente["id"],
-        "nombre": cliente["nombre"],
-        "tipo_precio": cliente["tipo_precio"] if cliente["tipo_precio"] else "1"
-    }
-
-@app.get("/api/clientes-lista")
-def listar_clientes_admin():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, nombre, usuario, tipo_precio FROM clientes")
-    clientes = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return clientes
 
 @app.get("/api/productos")
 def listar_productos(tipo_precio: str = "1"):
@@ -206,52 +151,24 @@ def listar_productos_admin():
         for p in productos
     ]
 
-class ClienteNuevo(BaseModel):
-    usuario: str
-    password: str
-    nombre: str
-    tipo_precio: str
-
-@app.post("/api/clientes")
-def crear_cliente(c: ClienteNuevo):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO clientes (usuario, password, nombre, tipo_precio) VALUES (%s, %s, %s, %s)",
-            (c.usuario, c.password, c.nombre, c.tipo_precio)
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
-    finally:
-        cursor.close()
-        conn.close()
-    return {"mensaje": "Cliente creado con éxito"}
-
 class ItemPedido(BaseModel):
     producto_id: int
     cantidad: int
 
 class PedidoEntrante(BaseModel):
-    cliente_id: int
+    cliente_nombre: str
+    lista_precio: str = "1"
     items: List[ItemPedido]
 
 @app.post("/api/pedidos")
 def registrar_pedido(pedido: PedidoEntrante):
+    if not pedido.cliente_nombre or not pedido.cliente_nombre.strip():
+        raise HTTPException(status_code=400, detail="El nombre del comercio es obligatorio")
+        
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT nombre, tipo_precio FROM clientes WHERE id = %s", (pedido.cliente_id,))
-    cli = cursor.fetchone()
-    if not cli:
-        cursor.close()
-        conn.close()
-        raise HTTPException(status_code=400, detail="Cliente no encontrado")
-        
-    cliente_nombre = cli["nombre"]
-    tipo_precio = cli["tipo_precio"] if cli["tipo_precio"] else "1"
+    tipo_precio = pedido.lista_precio if pedido.lista_precio in ["1", "2", "3", "4"] else "1"
     
     detalle_items = []
     total_pedido = 0.0
@@ -266,7 +183,6 @@ def registrar_pedido(pedido: PedidoEntrante):
         
         subtotal = prod["precio"] * item.cantidad
         total_pedido += subtotal
-        # Guardamos un formato estructurado o texto claro que incluya el ID del producto para luego poder reponer stock si se borra
         detalle_items.append(f"[ID:{prod['id']}] {item.cantidad}x {prod['nombre']} (${subtotal})")
         
     for item in pedido.items:
@@ -275,8 +191,8 @@ def registrar_pedido(pedido: PedidoEntrante):
     detalle_texto = ", ".join(detalle_items) + f" | **TOTAL: ${total_pedido}**"
     
     cursor.execute(
-        "INSERT INTO pedidos (cliente_id, cliente_nombre, detalle, estado) VALUES (%s, %s, %s, 'pendiente')",
-        (pedido.cliente_id, cliente_nombre, detalle_texto)
+        "INSERT INTO pedidos (cliente_nombre, lista_precio, detalle, estado) VALUES (%s, %s, %s, 'pendiente')",
+        (pedido.cliente_nombre.strip(), tipo_precio, detalle_texto)
     )
     
     conn.commit()
@@ -286,13 +202,13 @@ def registrar_pedido(pedido: PedidoEntrante):
     return {"mensaje": "Pedido registrado con éxito"}
 
 @app.get("/api/pedidos")
-def listar_pedidos(cliente_id: Optional[int] = None):
+def listar_pedidos(cliente_nombre: Optional[str] = None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    if cliente_id:
-        cursor.execute("SELECT id, cliente_id, cliente_nombre, detalle, estado, fecha FROM pedidos WHERE cliente_id = %s ORDER BY id DESC", (cliente_id,))
+    if cliente_nombre:
+        cursor.execute("SELECT id, cliente_nombre, lista_precio, detalle, estado, fecha FROM pedidos WHERE cliente_nombre ILIKE %s ORDER BY id DESC", (f"%{cliente_nombre}%",))
     else:
-        cursor.execute("SELECT id, cliente_id, cliente_nombre, detalle, estado, fecha FROM pedidos ORDER BY id DESC")
+        cursor.execute("SELECT id, cliente_nombre, lista_precio, detalle, estado, fecha FROM pedidos ORDER BY id DESC")
     pedidos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -300,8 +216,8 @@ def listar_pedidos(cliente_id: Optional[int] = None):
     return [
         {
             "id": p["id"],
-            "cliente_id": p["cliente_id"],
             "cliente": p["cliente_nombre"],
+            "lista_precio": p["lista_precio"],
             "detalle": p["detalle"],
             "estado": p["estado"],
             "fecha": str(p["fecha"]) if p["fecha"] else ""
@@ -327,8 +243,7 @@ def eliminar_pedido(pedido_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Obtener el pedido antes de borrarlo para reponer el stock
-    cursor.execute("SELECT detalle, estado FROM pedidos WHERE id = %s", (pedido_id,))
+    cursor.execute("SELECT detalle FROM pedidos WHERE id = %s", (pedido_id,))
     pedido = cursor.fetchone()
     
     if not pedido:
@@ -336,9 +251,7 @@ def eliminar_pedido(pedido_id: int):
         conn.close()
         raise HTTPException(status_code=404, detail="Pedido no encontrado")
         
-    # Si estaba pendiente (o independientemente si se desea reponer stock al borrar un error), devolvemos las cantidades
     detalle = pedido["detalle"]
-    # Buscamos patrones como [ID:5] 2x ...
     matches = re.findall(r'\[ID:(\d+)\]\s+(\d+)x', detalle)
     for prod_id_str, cantidad_str in matches:
         prod_id = int(prod_id_str)
