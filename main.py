@@ -3,10 +3,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3
-from init_db import init_db
-
-init_db()
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = FastAPI()
 
@@ -40,9 +39,42 @@ class PedidoCreate(BaseModel):
     estado: Optional[str] = "pendiente"
 
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise Exception("No se encontró la variable DATABASE_URL en Render")
+    conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
     return conn
+
+# Inicializar tablas en Supabase
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS productos (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT NOT NULL,
+            stock INT DEFAULT 0,
+            precio_1 NUMERIC DEFAULT 0,
+            precio_2 NUMERIC DEFAULT 0,
+            precio_3 NUMERIC DEFAULT 0,
+            precio_4 NUMERIC DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS pedidos (
+            id SERIAL PRIMARY KEY,
+            cliente TEXT NOT NULL,
+            lista_precio INT DEFAULT 1,
+            detalle TEXT,
+            estado TEXT DEFAULT 'pendiente',
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ''')
+    conn.commit()
+    conn.close()
+
+try:
+    init_db()
+except Exception as e:
+    print("Error al inicializar la BD:", e)
 
 # --- PRODUCTOS ---
 
@@ -50,8 +82,8 @@ def get_db_connection():
 def obtener_productos():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM productos")
-    productos = [dict(row) for row in cursor.fetchall()]
+    cursor.execute("SELECT * FROM productos ORDER BY id ASC")
+    productos = cursor.fetchall()
     conn.close()
     return productos
 
@@ -61,7 +93,7 @@ def crear_producto(prod: ProductoCreate):
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s)
     ''', (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4))
     conn.commit()
     conn.close()
@@ -71,7 +103,7 @@ def crear_producto(prod: ProductoCreate):
 def actualizar_stock(producto_id: int, stock_data: StockProducto):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE productos SET stock = ? WHERE id = ?", (stock_data.stock, producto_id))
+    cursor.execute("UPDATE productos SET stock = %s WHERE id = %s", (stock_data.stock, producto_id))
     conn.commit()
     conn.close()
     return {"ok": True}
@@ -83,7 +115,7 @@ def obtener_pedidos():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM pedidos ORDER BY id DESC")
-    pedidos = [dict(row) for row in cursor.fetchall()]
+    pedidos = cursor.fetchall()
     conn.close()
     return pedidos
 
@@ -93,7 +125,7 @@ def crear_pedido(ped: PedidoCreate):
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO pedidos (cliente, lista_precio, detalle, estado)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
     ''', (ped.cliente, ped.lista_precio, ped.detalle, ped.estado))
     conn.commit()
     conn.close()
@@ -103,7 +135,7 @@ def crear_pedido(ped: PedidoCreate):
 def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado_data.estado, pedido_id))
+    cursor.execute("UPDATE pedidos SET estado = %s WHERE id = %s", (estado_data.estado, pedido_id))
     conn.commit()
     conn.close()
     return {"ok": True}
@@ -112,7 +144,7 @@ def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
 def eliminar_pedido(pedido_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+    cursor.execute("DELETE FROM pedidos WHERE id = %s", (pedido_id,))
     conn.commit()
     conn.close()
     return {"ok": True}
