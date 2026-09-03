@@ -1,57 +1,217 @@
-async function enviarPedido() {
-    const cliente = document.getElementById('nombre-cliente').value.trim();
-    if (!cliente) {
-        alert('Por favor, ingresa el nombre de tu comercio o negocio.');
-        return;
-    }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Pedidos - Distribuidora Don Vitorio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
 
-    if (carrito.length === 0) {
-        alert('El carrito está vacío.');
-        return;
-    }
+    <header class="bg-blue-600 text-white p-4 shadow-md">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">Distribuidora Don Vitorio</h1>
+                <span id="label-lista" class="text-xs bg-blue-800 px-2 py-1 rounded mt-1 inline-block">Cargando lista...</span>
+            </div>
+            <a href="/admin.html" class="text-xs underline hover:text-gray-200">Acceso Admin</a>
+        </div>
+    </header>
 
-    // Coloca tu número de WhatsApp real con código de país (Ej: 5491122334455)
-    const MI_WHATSAPP = "5492984746691"; 
+    <main class="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- CATÁLOGO DE PRODUCTOS -->
+        <section class="md:col-span-2 space-y-4">
+            <h2 class="text-lg font-bold text-gray-800">Catálogo de Productos</h2>
+            <div id="grid-productos" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Se dibuja mediante JavaScript -->
+            </div>
+        </section>
 
-    const total = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
-    const detalleStr = carrito.map(i => `[ID:${i.id}] ${i.cantidad}x ${i.nombre} ($${i.precio})`).join(', ') + ` | TOTAL: $${total.toFixed(2)}`;
+        <!-- CARRITO DE COMPRAS -->
+        <section class="bg-white p-4 rounded-lg shadow-md h-fit space-y-4">
+            <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Tu Pedido Actual</h2>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nombre de tu Comercio / Negocio:</label>
+                <input type="text" id="nombre-cliente" placeholder="Ej: Kiosco Don Juan" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
 
-    try {
-        const res = await fetch('/api/pedidos', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                cliente: cliente,
-                lista_precio: numLista,
-                detalle: detalleStr,
-                estado: 'pendiente'
-            })
-        });
+            <div id="items-carrito" class="space-y-2 max-h-60 overflow-y-auto text-sm border-t border-b py-2">
+                <p class="text-gray-400 text-center py-4">El carrito está vacío</p>
+            </div>
 
-        if (res.ok) {
-            // Construye la URL de WhatsApp
-            let mensajeWA = `🛒 *NUEVO PEDIDO B2B*\n`;
-            mensajeWA += `👤 *Cliente:* ${cliente}\n`;
-            mensajeWA += `📋 *Lista:* #${numLista}\n\n`;
-            mensajeWA += `*Detalle:*\n`;
-            carrito.forEach(i => {
-                mensajeWA += `• ${i.cantidad}x ${i.nombre} - $${(i.precio * i.cantidad).toFixed(2)}\n`;
-            });
-            mensajeWA += `\n💰 *TOTAL:* $${total.toFixed(2)}`;
+            <div class="flex justify-between items-center text-lg font-bold">
+                <span>Total:</span>
+                <span id="total-carrito">$0.00</span>
+            </div>
 
-            const urlWA = `https://wa.me/${MI_WHATSAPP}?text=${encodeURIComponent(mensajeWA)}`;
+            <button onclick="enviarPedido()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm transition shadow">
+                Confirmar y Enviar Pedido
+            </button>
+        </section>
 
-            // Limpiar carrito
-            carrito = [];
-            document.getElementById('nombre-cliente').value = '';
-            renderizarCarrito();
+    </main>
 
-            // Redirige directamente al hacer clic
-            window.location.assign(urlWA);
-        } else {
-            alert('Ocurrió un error al registrar el pedido.');
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const numLista = parseInt(urlParams.get('lista')) || 1;
+
+        document.getElementById('label-lista').innerText = `Lista de Precios Activa #${numLista}`;
+
+        let productosCache = [];
+        let carrito = [];
+
+        async function cargarProductos() {
+            try {
+                const res = await fetch('/api/productos');
+                productosCache = await res.json();
+                renderizarProductos();
+            } catch (e) {
+                console.error("Error al obtener catálogo:", e);
+            }
         }
-    } catch (e) {
-        alert('Error de conexión al enviar el pedido.');
-    }
-}
+
+        function renderizarProductos() {
+            const grid = document.getElementById('grid-productos');
+            if (!productosCache || productosCache.length === 0) {
+                grid.innerHTML = '<p class="text-gray-500 col-span-2 text-center py-4">No hay productos cargados en el catálogo.</p>';
+                return;
+            }
+
+            grid.innerHTML = productosCache.map(p => {
+                const precioUnico = p[`precio_${numLista}`] ?? p.precio_1 ?? 0;
+
+                return `
+                    <div class="bg-white p-4 rounded-lg shadow space-y-2 border">
+                        <h3 class="font-bold text-gray-800">${p.nombre}</h3>
+                        <p class="text-xs text-gray-500">Stock disponible: ${p.stock}</p>
+                        <p class="text-lg font-bold text-blue-600">$${parseFloat(precioUnico).toFixed(2)}</p>
+                        
+                        <div class="flex space-x-2">
+                            <input type="number" id="cant-${p.id}" value="1" min="1" max="${p.stock}" class="w-16 border p-1 rounded text-center text-sm">
+                            <button onclick="agregarAlCarrito(${p.id}, ${precioUnico})" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm transition">
+                                Agregar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function agregarAlCarrito(id, precio) {
+            const producto = productosCache.find(p => p.id === id);
+            const cantidadInput = document.getElementById(`cant-${id}`);
+            const cantidad = parseInt(cantidadInput.value) || 1;
+
+            if (!producto || cantidad <= 0) return;
+
+            const existente = carrito.find(item => item.id === id);
+            if (existente) {
+                existente.cantidad += cantidad;
+            } else {
+                carrito.push({
+                    id: producto.id,
+                    nombre: producto.nombre,
+                    precio: precio,
+                    cantidad: cantidad
+                });
+            }
+
+            renderizarCarrito();
+        }
+
+        function renderizarCarrito() {
+            const contenedor = document.getElementById('items-carrito');
+            const totalElem = document.getElementById('total-carrito');
+
+            if (carrito.length === 0) {
+                contenedor.innerHTML = `<p class="text-gray-400 text-center py-4">El carrito está vacío</p>`;
+                totalElem.innerText = '$0.00';
+                return;
+            }
+
+            let total = 0;
+            contenedor.innerHTML = carrito.map((item, index) => {
+                const subtotal = item.precio * item.cantidad;
+                total += subtotal;
+                return `
+                    <div class="flex justify-between items-center text-xs">
+                        <div class="flex-1">
+                            <p class="font-bold">${item.nombre}</p>
+                            <p class="text-gray-500">${item.cantidad} x $${item.precio.toFixed(2)}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold">$${subtotal.toFixed(2)}</span>
+                            <button onclick="eliminarDelCarrito(${index})" class="text-red-500 hover:text-red-700 font-bold">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            totalElem.innerText = `$${total.toFixed(2)}`;
+        }
+
+        function eliminarDelCarrito(index) {
+            carrito.splice(index, 1);
+            renderizarCarrito();
+        }
+
+        async function enviarPedido() {
+            const cliente = document.getElementById('nombre-cliente').value.trim();
+            if (!cliente) {
+                alert('Por favor, ingresa el nombre de tu comercio o negocio.');
+                return;
+            }
+
+            if (carrito.length === 0) {
+                alert('El carrito está vacío.');
+                return;
+            }
+
+            const MI_WHATSAPP = "5492984746691"; 
+
+            const total = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
+            const detalleStr = carrito.map(i => `[ID:${i.id}] ${i.cantidad}x ${i.nombre} ($${i.precio})`).join(', ') + ` | TOTAL: $${total.toFixed(2)}`;
+
+            try {
+                const res = await fetch('/api/pedidos', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        cliente: cliente,
+                        lista_precio: numLista,
+                        detalle: detalleStr,
+                        estado: 'pendiente'
+                    })
+                });
+
+                if (res.ok) {
+                    let mensajeWA = `🛒 *NUEVO PEDIDO B2B*\n`;
+                    mensajeWA += `👤 *Cliente:* ${cliente}\n`;
+                    mensajeWA += `📋 *Lista:* #${numLista}\n\n`;
+                    mensajeWA += `*Detalle:*\n`;
+                    carrito.forEach(i => {
+                        mensajeWA += `• ${i.cantidad}x ${i.nombre} - $${(i.precio * i.cantidad).toFixed(2)}\n`;
+                    });
+                    mensajeWA += `\n💰 *TOTAL:* $${total.toFixed(2)}`;
+
+                    const urlWA = `https://api.whatsapp.com/send?phone=${MI_WHATSAPP}&text=${encodeURIComponent(mensajeWA)}`;
+
+                    carrito = [];
+                    document.getElementById('nombre-cliente').value = '';
+                    renderizarCarrito();
+
+                    window.location.href = urlWA;
+                } else {
+                    alert('Ocurrió un error al registrar el pedido.');
+                }
+            } catch (e) {
+                alert('Error de conexión al enviar el pedido.');
+            }
+        }
+
+        cargarProductos();
+    </script>
+</body>
+</html>
