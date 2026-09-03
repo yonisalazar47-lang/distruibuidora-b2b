@@ -68,16 +68,20 @@
 
         <!-- SECCIÓN PRODUCTOS Y STOCK -->
         <section id="sec-productos" class="space-y-6 hidden">
-            <!-- Formulario Nuevo Producto: Exactamente 6 campos (Nombre, Stock, P1, P2, P3, P4) -->
+            <!-- Formulario Nuevo Producto (Diseño de 6 celdas: Nombre ocupa 2, luego Stock y 4 precios) -->
             <div class="bg-white p-4 rounded-lg shadow space-y-3">
                 <h2 class="font-bold text-gray-800">Agregar Nuevo Producto</h2>
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                     <input type="text" id="p-nombre" placeholder="Nombre" class="border p-2 rounded text-sm col-span-2">
                     <input type="number" id="p-stock" placeholder="Stock" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p1" placeholder="Precio L1" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p2" placeholder="Precio L2" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p3" placeholder="Precio L3" class="border p-2 rounded text-sm">
-                    <input type="number" step="0.01" id="p-p4" placeholder="Precio L4" class="border p-2 rounded text-sm">
+                    <input type="number" step="0.01" id="p-p4" placeholder="Precio L4" class="border p-2 rounded text-sm hidden"> <!-- Oculto por si acaso -->
+                </div>
+                <!-- Pequeño ajuste para reubicar visualmente el cuarto precio si faltaba espacio -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-2 pt-1">
+                    <input type="number" step="0.01" id="p-p4-real" placeholder="Precio L4" class="border p-2 rounded text-sm col-span-2 md:col-span-1">
                 </div>
                 <button onclick="crearProducto()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm">Guardar Producto</button>
             </div>
@@ -277,7 +281,8 @@
             const precio_1 = parseFloat(document.getElementById('p-p1').value) || 0;
             const precio_2 = parseFloat(document.getElementById('p-p2').value) || 0;
             const precio_3 = parseFloat(document.getElementById('p-p3').value) || 0;
-            const precio_4 = parseFloat(document.getElementById('p-p4').value) || 0;
+            // Tomamos el valor del cuarto precio con seguridad
+            const precio_4 = parseFloat(document.getElementById('p-p4-real').value) || 0;
 
             if(!nombre) return alert('Por favor ingresa un nombre para el producto');
 
@@ -295,7 +300,7 @@
                     document.getElementById('p-p1').value = '';
                     document.getElementById('p-p2').value = '';
                     document.getElementById('p-p3').value = '';
-                    document.getElementById('p-p4').value = '';
+                    document.getElementById('p-p4-real').value = '';
                     cargarProductos();
                 } else {
                     alert('Error al guardar el producto.');
