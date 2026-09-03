@@ -93,6 +93,7 @@
                         <th class="p-2">Lista</th>
                         <th class="p-2">Detalle</th>
                         <th class="p-2">Estado</th>
+                        <th class="p-2 text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="tabla-pedidos"></tbody>
@@ -184,19 +185,69 @@
 
             const tbody = document.getElementById('tabla-pedidos');
             if (filtrados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No hay pedidos para mostrar.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No hay pedidos para mostrar.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = filtrados.map(p => `
-                <tr class="border-b">
-                    <td class="p-2 font-bold">#${p.id}</td>
-                    <td class="p-2">${p.cliente}</td>
-                    <td class="p-2 text-xs font-bold">Lista ${p.lista_precio || 1}</td>
-                    <td class="p-2 text-xs">${p.detalle}</td>
-                    <td class="p-2 font-bold">${p.estado || 'pendiente'}</td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = filtrados.map(p => {
+                const est = (p.estado || 'pendiente').toLowerCase();
+                return `
+                    <tr class="border-b">
+                        <td class="p-2 font-bold">#${p.id}</td>
+                        <td class="p-2">${p.cliente}</td>
+                        <td class="p-2 text-xs font-bold">Lista ${p.lista_precio || 1}</td>
+                        <td class="p-2 text-xs">${p.detalle}</td>
+                        <td class="p-2">
+                            <select onchange="cambiarEstado(${p.id}, this.value)" class="border p-1 rounded text-xs font-bold">
+                                <option value="pendiente" ${est === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="procesando" ${est === 'procesando' ? 'selected' : ''}>En proceso</option>
+                                <option value="entregado" ${est === 'entregado' ? 'selected' : ''}>Entregado</option>
+                            </select>
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="eliminarPedido(${p.id})" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs transition">
+                                Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function cambiarEstado(id, nuevoEstado) {
+            try {
+                const res = await fetch(`/api/pedidos/${id}/estado`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ estado: nuevoEstado })
+                });
+                if (res.ok) {
+                    const p = pedidosOriginales.find(x => x.id === id);
+                    if (p) p.estado = nuevoEstado;
+                } else {
+                    alert('Error al actualizar el estado');
+                }
+            } catch (err) {
+                alert('Error de red al actualizar estado');
+            }
+        }
+
+        async function eliminarPedido(id) {
+            if (!confirm(`¿Estás seguro de que deseas eliminar el pedido #${id}?`)) return;
+
+            try {
+                const res = await fetch(`/api/pedidos/${id}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    pedidosOriginales = pedidosOriginales.filter(x => x.id !== id);
+                    filtrarPedidos();
+                } else {
+                    alert('Error al eliminar el pedido');
+                }
+            } catch (err) {
+                alert('Error de red al eliminar el pedido');
+            }
         }
 
         cargarProductos();
