@@ -17,12 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Modelos con tipos flexibles
-class EstadoPedido(BaseModel):
-    estado: str
+# Configuración de base de datos PostgreSQL
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-class StockProducto(BaseModel):
-    stock: int
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 class ProductoCreate(BaseModel):
     nombre: str
@@ -32,143 +31,86 @@ class ProductoCreate(BaseModel):
     precio_3: float = 0.0
     precio_4: float = 0.0
 
-class PedidoCreate(BaseModel):
-    cliente: Optional[str] = "Cliente General"
-    lista_precio: Optional[int] = 1
-    detalle: str
-    estado: Optional[str] = "pendiente"
+class StockUpdate(BaseModel):
+    stock: int
 
-def get_db_connection():
-    db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        raise Exception("No se encontró la variable DATABASE_URL en Render")
-    conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
-    return conn
+class EstadoUpdate(BaseModel):
+    estado: str
 
-# Inicializar tablas en Supabase
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS productos (
-            id SERIAL PRIMARY KEY,
-            nombre TEXT NOT NULL,
-            stock INT DEFAULT 0,
-            precio_1 NUMERIC DEFAULT 0,
-            precio_2 NUMERIC DEFAULT 0,
-            precio_3 NUMERIC DEFAULT 0,
-            precio_4 NUMERIC DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS pedidos (
-            id SERIAL PRIMARY KEY,
-            cliente TEXT NOT NULL,
-            lista_precio INT DEFAULT 1,
-            detalle TEXT,
-            estado TEXT DEFAULT 'pendiente',
-            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    ''')
-    conn.commit()
-    conn.close()
-
-try:
-    init_db()
-except Exception as e:
-    print("Error al inicializar la BD:", e)
-
-# --- PRODUCTOS ---
-
+# Endpoints de Productos
 @app.get("/api/productos")
-def obtener_productos():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM productos ORDER BY id ASC")
-        productos = cursor.fetchall()
-        conn.close()
-        return productos
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def listar_productos():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM productos ORDER BY id ASC")
+    productos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return productos
 
 @app.post("/api/productos")
 def crear_producto(prod: ProductoCreate):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        ''', (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4))
-        conn.commit()
-        conn.close()
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) 
+        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+        """,
+        (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4)
+    )
+    nuevo_id = cur.fetchone()["id"]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"id": nuevo_id, "mensaje": "Producto creado con éxito"}
 
 @app.put("/api/productos/{producto_id}/stock")
-def actualizar_stock(producto_id: int, stock_data: StockProducto):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE productos SET stock = %s WHERE id = %s", (stock_data.stock, producto_id))
-        conn.commit()
-        conn.close()
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def actualizar_stock(producto_id: int, stock_data: StockUpdate):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE productos SET stock = %s WHERE id = %s",
+        (stock_data.stock, producto_id)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"mensaje": "Stock actualizado"}
 
-# --- PEDIDOS ---
-
+# Endpoints de Pedidos
 @app.get("/api/pedidos")
-def obtener_pedidos():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM pedidos ORDER BY id DESC")
-        pedidos = cursor.fetchall()
-        conn.close()
-        return pedidos
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/pedidos")
-def crear_pedido(ped: PedidoCreate):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO pedidos (cliente, lista_precio, detalle, estado)
-            VALUES (%s, %s, %s, %s)
-        ''', (ped.cliente, ped.lista_precio, ped.detalle, ped.estado))
-        conn.commit()
-        conn.close()
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def listar_pedidos():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM pedidos ORDER BY id DESC")
+    pedidos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return pedidos
 
 @app.put("/api/pedidos/{pedido_id}/estado")
-def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE productos SET estado = %s WHERE id = %s", (estado_data.estado, pedido_id))
-        conn.commit()
-        conn.close()
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def actualizar_estado_pedido(pedido_id: int, estado_data: EstadoUpdate):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE pedidos SET estado = %s WHERE id = %s",
+        (estado_data.estado, pedido_id)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"mensaje": "Estado actualizado"}
 
 @app.delete("/api/pedidos/{pedido_id}")
 def eliminar_pedido(pedido_id: int):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM pedidos WHERE id = %s", (pedido_id,))
-        conn.commit()
-        conn.close()
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM pedidos WHERE id = %s", (pedido_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"mensaje": "Pedido eliminado"}
 
+# Montar archivos estáticos al final
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
