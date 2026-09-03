@@ -68,12 +68,12 @@
 
         <!-- SECCIÓN PRODUCTOS Y STOCK -->
         <section id="sec-productos" class="space-y-6 hidden">
-            <!-- Formulario Nuevo Producto -->
+            <!-- Formulario Nuevo Producto (Grid estricta de 6 columnas en pantallas medianas) -->
             <div class="bg-white p-4 rounded-lg shadow space-y-3">
                 <h2 class="font-bold text-gray-800">Agregar Nuevo Producto</h2>
                 <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
-                    <input type="text" id="p-nombre" placeholder="Nombre" class="border p-2 rounded text-sm col-span-2">
-                    <input type="number" id="p-stock" placeholder="Stock Inicial" class="border p-2 rounded text-sm">
+                    <input type="text" id="p-nombre" placeholder="Nombre" class="border p-2 rounded text-sm col-span-2 md:col-span-2">
+                    <input type="number" id="p-stock" placeholder="Stock" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p1" placeholder="Precio L1" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p2" placeholder="Precio L2" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p3" placeholder="Precio L3" class="border p-2 rounded text-sm">
