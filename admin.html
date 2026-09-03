@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Administrador</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librerías para exportar a Excel y PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body class="bg-gray-100 p-6">
     <div class="max-w-6xl mx-auto space-y-6">
@@ -74,15 +78,27 @@
 
         <!-- PEDIDOS -->
         <div id="tab-pedidos" class="hidden space-y-4">
-            <div class="flex space-x-4">
-                <input type="text" id="buscar-cliente" oninput="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded w-1/2">
-                
-                <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded">
-                    <option value="todos">Todos los estados</option>
-                    <option value="pendiente">Pendientes</option>
-                    <option value="procesando">En proceso</option>
-                    <option value="entregado">Entregados</option>
-                </select>
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex space-x-4 flex-1">
+                    <input type="text" id="buscar-cliente" oninput="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded w-1/2">
+                    
+                    <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded">
+                        <option value="todos">Todos los estados</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="procesando">En proceso</option>
+                        <option value="entregado">Entregados</option>
+                    </select>
+                </div>
+
+                <!-- Botones de Exportación -->
+                <div class="flex space-x-2">
+                    <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded text-xs transition">
+                        Exportar Excel
+                    </button>
+                    <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded text-xs transition">
+                        Exportar PDF
+                    </button>
+                </div>
             </div>
 
             <table class="w-full bg-white rounded shadow text-left">
@@ -103,6 +119,7 @@
 
     <script>
         let pedidosOriginales = [];
+        let pedidosFiltradosActuales = [];
 
         function verTab(tab) {
             document.getElementById('tab-productos').classList.toggle('hidden', tab !== 'productos');
@@ -173,7 +190,7 @@
             const busqueda = document.getElementById('buscar-cliente').value.toLowerCase().trim();
             const filtroEstado = document.getElementById('filtro-estado').value.toLowerCase().trim();
 
-            const filtrados = pedidosOriginales.filter(p => {
+            pedidosFiltradosActuales = pedidosOriginales.filter(p => {
                 const cliente = (p.cliente || '').toLowerCase();
                 const estado = (p.estado || 'pendiente').toLowerCase();
 
@@ -184,12 +201,12 @@
             });
 
             const tbody = document.getElementById('tabla-pedidos');
-            if (filtrados.length === 0) {
+            if (pedidosFiltradosActuales.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No hay pedidos para mostrar.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = filtrados.map(p => {
+            tbody.innerHTML = pedidosFiltradosActuales.map(p => {
                 const est = (p.estado || 'pendiente').toLowerCase();
                 return `
                     <tr class="border-b">
@@ -224,6 +241,7 @@
                 if (res.ok) {
                     const p = pedidosOriginales.find(x => x.id === id);
                     if (p) p.estado = nuevoEstado;
+                    filtrarPedidos();
                 } else {
                     alert('Error al actualizar el estado');
                 }
@@ -248,6 +266,57 @@
             } catch (err) {
                 alert('Error de red al eliminar el pedido');
             }
+        }
+
+        // Exportación a Excel
+        function exportarExcel() {
+            if (pedidosFiltradosActuales.length === 0) {
+                alert("No hay pedidos filtrados para exportar.");
+                return;
+            }
+
+            const datos = pedidosFiltradosActuales.map(p => ({
+                "ID": p.id,
+                "Cliente": p.cliente,
+                "Lista Precio": `Lista ${p.lista_precio || 1}`,
+                "Detalle": p.detalle,
+                "Estado": p.estado || 'pendiente'
+            }));
+
+            const hoja = XLSX.utils.json_to_sheet(datos);
+            const libro = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(libro, hoja, "Pedidos");
+            XLSX.writeFile(libro, "pedidos_filtrados.xlsx");
+        }
+
+        // Exportación a PDF
+        function exportarPDF() {
+            if (pedidosFiltradosActuales.length === 0) {
+                alert("No hay pedidos filtrados para exportar.");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(16);
+            doc.text("Reporte de Pedidos Filtrados", 14, 15);
+
+            const filas = pedidosFiltradosActuales.map(p => [
+                `#${p.id}`,
+                p.cliente,
+                `Lista ${p.lista_precio || 1}`,
+                p.detalle,
+                p.estado || 'pendiente'
+            ]);
+
+            doc.autoTable({
+                startY: 22,
+                head: [['ID', 'Cliente', 'Lista', 'Detalle', 'Estado']],
+                body: filas,
+            });
+
+            doc.save("pedidos_filtrados.pdf");
         }
 
         cargarProductos();
