@@ -1,13 +1,24 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import sqlite3
 from init_db import init_db
 
-# Inicializar BD al arrancar
+# Inicializar Base de Datos
 init_db()
 
 app = FastAPI()
+
+# Permitir peticiones (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Modelos de datos
 class EstadoPedido(BaseModel):
@@ -22,10 +33,10 @@ class ProductoCreate(BaseModel):
     precio_4: float
 
 class PedidoCreate(BaseModel):
-    cliente: str
-    lista_precio: int
+    cliente: Optional[str] = "Cliente General"
+    lista_precio: Optional[int] = 1
     detalle: str
-    estado: str = "pendiente"
+    estado: Optional[str] = "pendiente"
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
@@ -96,6 +107,5 @@ def eliminar_pedido(pedido_id: int):
     conn.close()
     return {"ok": True}
 
-# --- ARCHIVOS ESTÁTICOS Y VISTAS HTML ---
-# IMPORTANTE: Esta línea DEBE ir al final de todo el archivo para no interferir con las rutas /api/
+# Servir index.html y otros archivos de la raíz
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
