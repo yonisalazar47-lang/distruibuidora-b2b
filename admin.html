@@ -31,7 +31,6 @@
 
         <!-- SECCIÓN 1: GESTIÓN DE PRODUCTOS -->
         <div id="tab-productos" class="space-y-6">
-            <!-- Formulario Crear Producto -->
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Cargar Nuevo Producto</h2>
                 <form id="form-producto" onsubmit="guardarProducto(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -65,7 +64,6 @@
                 </form>
             </div>
 
-            <!-- Tabla de Productos -->
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Catálogo Registrado</h2>
                 <div class="overflow-x-auto">
@@ -81,9 +79,7 @@
                                 <th class="p-3">Lista 4</th>
                             </tr>
                         </thead>
-                        <tbody id="tabla-productos-body">
-                            <!-- JS inyecta filas -->
-                        </tbody>
+                        <tbody id="tabla-productos-body"></tbody>
                     </table>
                 </div>
             </div>
@@ -135,9 +131,7 @@
                                 <th class="p-3 print:hidden">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="tabla-pedidos-body">
-                            <!-- JS inyecta filas -->
-                        </tbody>
+                        <tbody id="tabla-pedidos-body"></tbody>
                     </table>
                 </div>
             </div>
@@ -153,16 +147,13 @@
             if (tab === 'productos') {
                 document.getElementById('tab-productos').classList.remove('hidden');
                 document.getElementById('tab-pedidos').classList.add('hidden');
-                
                 document.getElementById('tab-btn-productos').className = "py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none";
                 document.getElementById('tab-btn-pedidos').className = "py-2 px-4 font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none";
             } else {
                 document.getElementById('tab-productos').classList.add('hidden');
                 document.getElementById('tab-pedidos').classList.remove('hidden');
-                
                 document.getElementById('tab-btn-pedidos').className = "py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none";
                 document.getElementById('tab-btn-productos').className = "py-2 px-4 font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none";
-                
                 cargarPedidos();
             }
         }
@@ -173,7 +164,6 @@
                 const productos = await res.json();
                 const tbody = document.getElementById('tabla-productos-body');
                 tbody.innerHTML = '';
-
                 productos.forEach(p => {
                     tbody.innerHTML += `
                         <tr class="border-b hover:bg-gray-50">
@@ -188,7 +178,7 @@
                     `;
                 });
             } catch(e) {
-                console.error("Error al cargar productos admin", e);
+                console.error("Error al cargar productos", e);
             }
         }
 
@@ -213,8 +203,6 @@
                     alert('Producto guardado correctamente');
                     document.getElementById('form-producto').reset();
                     cargarProductosAdmin();
-                } else {
-                    alert('Error al guardar producto');
                 }
             } catch(err) {
                 alert('Error de conexión');
@@ -231,20 +219,21 @@
             }
         }
 
-        function normalizarTexto(str) {
-            return (str || '').toString().toLowerCase().trim();
+        function obtenerEstadoSeguro(pedido) {
+            const val = pedido.estado || pedido.estado_pedido || pedido.status || 'pendiente';
+            return String(val).toLowerCase().trim();
         }
 
         function aplicarFiltrosPedidos() {
-            const clienteFiltro = normalizarTexto(document.getElementById('filtro-cliente').value);
-            const estadoFiltro = normalizarTexto(document.getElementById('filtro-estado').value);
+            const clienteFiltro = String(document.getElementById('filtro-cliente').value || '').toLowerCase().trim();
+            const estadoFiltro = String(document.getElementById('filtro-estado').value || '').toLowerCase().trim();
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
-                const clientePedido = normalizarTexto(p.cliente);
-                const estadoPedido = normalizarTexto(p.estado);
+                const clientePedido = String(p.cliente || p.comercio || '').toLowerCase().trim();
+                const estadoPedido = obtenerEstadoSeguro(p);
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
-                const coincideEstado = (estadoFiltro === 'todos') || (estadoPedido === estadoFiltro);
+                const coincideEstado = (estadoFiltro === 'todos') || (estadoPedido.includes(estadoFiltro));
 
                 return coincideCliente && coincideEstado;
             });
@@ -262,22 +251,22 @@
             }
 
             pedidos.forEach(p => {
-                const estadoLimpio = normalizarTexto(p.estado);
+                const estadoLimpio = obtenerEstadoSeguro(p);
                 let badgeColor = "bg-yellow-100 text-yellow-800";
-                if(estadoLimpio === 'procesando') badgeColor = "bg-blue-100 text-blue-800";
-                if(estadoLimpio === 'entregado') badgeColor = "bg-green-100 text-green-800";
+                if(estadoLimpio.includes('procesando')) badgeColor = "bg-blue-100 text-blue-800";
+                if(estadoLimpio.includes('entregado')) badgeColor = "bg-green-100 text-green-800";
 
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
                         <td class="p-3 font-bold">#${p.id}</td>
-                        <td class="p-3 font-medium">${p.cliente}</td>
-                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${p.lista_precio}</td>
-                        <td class="p-3 text-xs text-gray-600">${p.detalle}</td>
+                        <td class="p-3 font-medium">${p.cliente || p.comercio || 'Cliente'}</td>
+                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${p.lista_precio || p.lista || 1}</td>
+                        <td class="p-3 text-xs text-gray-600">${p.detalle || ''}</td>
                         <td class="p-3">
                             <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
-                                <option value="pendiente" ${estadoLimpio === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-                                <option value="procesando" ${estadoLimpio === 'procesando' ? 'selected' : ''}>Procesando</option>
-                                <option value="entregado" ${estadoLimpio === 'entregado' ? 'selected' : ''}>Entregado</option>
+                                <option value="pendiente" ${estadoLimpio.includes('pendiente') ? 'selected' : ''}>Pendiente</option>
+                                <option value="procesando" ${estadoLimpio.includes('procesando') ? 'selected' : ''}>Procesando</option>
+                                <option value="entregado" ${estadoLimpio.includes('entregado') ? 'selected' : ''}>Entregado</option>
                             </select>
                         </td>
                         <td class="p-3 print:hidden">
@@ -325,8 +314,8 @@
 
             pedidosFiltradosActuales.forEach(p => {
                 const detalleLimpio = `"${(p.detalle || '').replace(/"/g, '""')}"`;
-                const clienteLimpio = `"${(p.cliente || '').replace(/"/g, '""')}"`;
-                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio},${detalleLimpio},${p.estado}\n`;
+                const clienteLimpio = `"${(p.cliente || p.comercio || '').replace(/"/g, '""')}"`;
+                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio || p.lista || 1},${detalleLimpio},${obtenerEstadoSeguro(p)}\n`;
             });
 
             const encodedUri = encodeURI(csvContent);
