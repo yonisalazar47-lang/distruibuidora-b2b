@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Any
 import os
+import re
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -106,12 +107,12 @@ def crear_pedido(pedido: PedidoCreate):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Nos aseguramos de castear a texto/string de forma segura
         c_nombre = str(pedido.cliente_nombre or "Cliente General")
         c_detalle = str(pedido.detalle or "")
         c_lista = str(pedido.lista_precio or "1")
         c_estado = str(pedido.estado or "Pendiente")
 
+        # 1. Insertamos el pedido
         cur.execute(
             """
             INSERT INTO pedidos (cliente_nombre, detalle, lista_precio, estado) 
@@ -120,10 +121,23 @@ def crear_pedido(pedido: PedidoCreate):
             (c_nombre, c_detalle, c_lista, c_estado)
         )
         nuevo_id = cur.fetchone()["id"]
+
+        # 2. Descontamos automáticamente el stock según el detalle (Ej: "[ID:1] 2x Harina...")
+        # Buscamos coincidencias del patrón [ID:X] y cantidad Xx
+        items = re.findall(r'\[ID:(\d+)\]\s*(\d+)x', c_detalle)
+        for prod_id_str, cantidad_str in items:
+            prod_id = int(prod_id_str)
+            cantidad = int(cantidad_str)
+            
+            cur.execute(
+                "UPDATE productos SET stock = GREATEST(0, stock - %s) WHERE id = %s",
+                (cantidad, prod_id)
+            )
+
         conn.commit()
         cur.close()
         conn.close()
-        return {"id": nuevo_id, "mensaje": "Pedido creado con éxito"}
+        return {"id": nuevo_id, "mensaje": "Pedido creado y stock actualizado con éxito"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
