@@ -158,22 +158,39 @@
             }
         }
 
+        // Helper para obtener precios probando todos los nombres de clave posibles
+        function obtenerPrecio(p, num) {
+            const val = p[`precio_${num}`] ?? p[`precio${num}`] ?? p[`p${num}`] ?? (Array.isArray(p.precios) ? p.precios[num-1] : undefined);
+            return val !== undefined && val !== null ? val : '0';
+        }
+
         async function cargarProductosAdmin() {
             try {
-                const res = await fetch('/api/productos');
+                // Intenta cargar desde la API estándar de productos
+                let res = await fetch('/api/productos');
+                if (!res.ok) res = await fetch('/api/productos-admin');
+                
                 const productos = await res.json();
+                console.log("Productos recibidos:", productos);
+
                 const tbody = document.getElementById('tabla-productos-body');
                 tbody.innerHTML = '';
+                
                 productos.forEach(p => {
+                    const p1 = obtenerPrecio(p, 1);
+                    const p2 = obtenerPrecio(p, 2);
+                    const p3 = obtenerPrecio(p, 3);
+                    const p4 = obtenerPrecio(p, 4);
+
                     tbody.innerHTML += `
                         <tr class="border-b hover:bg-gray-50">
-                            <td class="p-3 font-bold">${p.id}</td>
-                            <td class="p-3 font-medium">${p.nombre}</td>
-                            <td class="p-3">${p.stock}</td>
-                            <td class="p-3 text-blue-600">$${p.precio_1}</td>
-                            <td class="p-3 text-blue-600">$${p.precio_2}</td>
-                            <td class="p-3 text-blue-600">$${p.precio_3}</td>
-                            <td class="p-3 text-blue-600">$${p.precio_4}</td>
+                            <td class="p-3 font-bold">${p.id || p.id_producto || '-'}</td>
+                            <td class="p-3 font-medium">${p.nombre || p.producto || 'Sin Nombre'}</td>
+                            <td class="p-3">${p.stock ?? 0}</td>
+                            <td class="p-3 text-blue-600">$${p1}</td>
+                            <td class="p-3 text-blue-600">$${p2}</td>
+                            <td class="p-3 text-blue-600">$${p3}</td>
+                            <td class="p-3 text-blue-600">$${p4}</td>
                         </tr>
                     `;
                 });
@@ -190,7 +207,11 @@
                 precio_1: parseFloat(document.getElementById('p-p1').value),
                 precio_2: parseFloat(document.getElementById('p-p2').value),
                 precio_3: parseFloat(document.getElementById('p-p3').value),
-                precio_4: parseFloat(document.getElementById('p-p4').value)
+                precio_4: parseFloat(document.getElementById('p-p4').value),
+                p1: parseFloat(document.getElementById('p-p1').value),
+                p2: parseFloat(document.getElementById('p-p2').value),
+                p3: parseFloat(document.getElementById('p-p3').value),
+                p4: parseFloat(document.getElementById('p-p4').value)
             };
 
             try {
@@ -212,10 +233,14 @@
         async function cargarPedidos() {
             try {
                 const res = await fetch('/api/pedidos');
+                if (!res.ok) throw new Error("Error en la respuesta de la red");
                 pedidosOriginales = await res.json();
+                console.log("Pedidos recibidos:", pedidosOriginales);
                 aplicarFiltrosPedidos();
             } catch(e) {
                 console.error("Error al cargar pedidos", e);
+                const tbody = document.getElementById('tabla-pedidos-body');
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500 font-bold">Error de conexión al cargar los pedidos. Revisa la consola.</td></tr>`;
             }
         }
 
@@ -224,12 +249,11 @@
             const estadoFiltro = String(document.getElementById('filtro-estado').value || '').toLowerCase().trim();
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
-                const clientePedido = String(p.cliente || p.comercio || '').toLowerCase().trim();
+                const clientePedido = String(p.cliente || p.comercio || p.nombre_cliente || '').toLowerCase().trim();
                 const estadoPedido = String(p.estado || p.estado_pedido || p.status || '').toLowerCase().trim();
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
                 
-                // Si estadoFiltro es 'todos', muestra todo. Si no, compara de forma flexible o permite vacíos como pendiente.
                 let coincideEstado = (estadoFiltro === 'todos');
                 if (!coincideEstado) {
                     if (estadoFiltro === 'pendiente') {
@@ -269,21 +293,26 @@
                     opcionSeleccionada = "Entregado";
                 }
 
+                const idPedido = p.id || p.id_pedido || '-';
+                const clientePedido = p.cliente || p.comercio || p.nombre_cliente || 'Cliente';
+                const listaPrecio = p.lista_precio || p.lista || p.num_lista || 1;
+                const detallePedido = p.detalle || p.items || p.productos || '';
+
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="p-3 font-bold">#${p.id}</td>
-                        <td class="p-3 font-medium">${p.cliente || p.comercio || 'Cliente'}</td>
-                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${p.lista_precio || p.lista || 1}</td>
-                        <td class="p-3 text-xs text-gray-600">${p.detalle || ''}</td>
+                        <td class="p-3 font-bold">#${idPedido}</td>
+                        <td class="p-3 font-medium">${clientePedido}</td>
+                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${listaPrecio}</td>
+                        <td class="p-3 text-xs text-gray-600">${detallePedido}</td>
                         <td class="p-3">
-                            <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
+                            <select onchange="actualizarEstado(${idPedido}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
                                 <option value="Pendiente" ${opcionSeleccionada === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                                 <option value="Procesando" ${opcionSeleccionada === 'Procesando' ? 'selected' : ''}>Procesando</option>
                                 <option value="Entregado" ${opcionSeleccionada === 'Entregado' ? 'selected' : ''}>Entregado</option>
                             </select>
                         </td>
                         <td class="p-3 print:hidden">
-                            <button onclick="eliminarPedido(${p.id})" class="text-red-600 hover:underline text-xs font-bold">Eliminar</button>
+                            <button onclick="eliminarPedido(${idPedido})" class="text-red-600 hover:underline text-xs font-bold">Eliminar</button>
                         </td>
                     </tr>
                 `;
