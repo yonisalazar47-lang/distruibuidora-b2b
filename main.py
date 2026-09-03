@@ -89,7 +89,6 @@ def listar_pedidos():
 def actualizar_estado_pedido(pedido_id: int, estado_data: EstadoUpdate):
     conn = get_db_connection()
     cur = conn.cursor()
-    # CORREGIDO: Actualiza la tabla pedidos y no productos
     cur.execute(
         "UPDATE pedidos SET estado = %s WHERE id = %s",
         (estado_data.estado, pedido_id)
