@@ -1,4 +1,280 @@
-async function crearProducto() {
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador - Distribuidora Don Vitorio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librerías para Exportar a Excel y PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-6">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        <div class="flex justify-between items-center border-b pb-4">
+            <h1 class="text-2xl font-bold text-gray-800">Panel Administrador</h1>
+            <a href="/?lista=1" class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700">Ver Catálogo</a>
+        </div>
+
+        <!-- Pestañas -->
+        <div class="flex space-x-4 border-b">
+            <button id="btn-tab-pedidos" onclick="cambiarTab('pedidos')" class="pb-2 font-bold text-blue-600 border-b-2 border-blue-600">Pedidos</button>
+            <button id="btn-tab-productos" onclick="cambiarTab('productos')" class="pb-2 font-bold text-gray-500 hover:text-gray-700">Productos y Stock</button>
+        </div>
+
+        <!-- SECCIÓN PEDIDOS -->
+        <section id="sec-pedidos" class="space-y-4">
+            <div class="flex flex-wrap gap-2 justify-between items-center bg-white p-3 rounded shadow-sm">
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <input type="text" id="buscar-pedido" onkeyup="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded text-sm w-full sm:w-64">
+                    <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded text-sm">
+                        <option value="">Todos los estados</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="en proceso">En proceso</option>
+                        <option value="entregado">Entregados</option>
+                    </select>
+                </div>
+                <!-- Botones Exportar -->
+                <div class="flex space-x-2">
+                    <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-2 rounded">
+                        📊 Exportar Excel
+                    </button>
+                    <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded">
+                        📄 Exportar PDF
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-200 text-gray-700">
+                        <tr>
+                            <th class="p-3"># ID</th>
+                            <th class="p-3">Cliente</th>
+                            <th class="p-3">Lista</th>
+                            <th class="p-3">Detalle</th>
+                            <th class="p-3">Estado</th>
+                            <th class="p-3">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-pedidos" class="divide-y">
+                        <!-- Carga dinámica -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECCIÓN PRODUCTOS Y STOCK -->
+        <section id="sec-productos" class="space-y-6 hidden">
+            <!-- Formulario Nuevo Producto (4 Precios + Stock) -->
+            <div class="bg-white p-4 rounded-lg shadow space-y-3">
+                <h2 class="font-bold text-gray-800">Agregar Nuevo Producto</h2>
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+                    <input type="text" id="p-nombre" placeholder="Nombre" class="border p-2 rounded text-sm col-span-2">
+                    <input type="number" id="p-stock" placeholder="Stock Inicial" class="border p-2 rounded text-sm">
+                    <input type="number" step="0.01" id="p-p1" placeholder="Precio L1" class="border p-2 rounded text-sm">
+                    <input type="number" step="0.01" id="p-p2" placeholder="Precio L2" class="border p-2 rounded text-sm">
+                    <input type="number" step="0.01" id="p-p3" placeholder="Precio L3" class="border p-2 rounded text-sm">
+                    <input type="number" step="0.01" id="p-p4" placeholder="Precio L4" class="border p-2 rounded text-sm">
+                </div>
+                <button onclick="crearProducto()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm">Guardar Producto</button>
+            </div>
+
+            <!-- Lista de Productos y Edición de Stock -->
+            <div class="bg-white rounded-lg shadow overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-200 text-gray-700">
+                        <tr>
+                            <th class="p-3">ID</th>
+                            <th class="p-3">Producto</th>
+                            <th class="p-3">Stock Actual</th>
+                            <th class="p-3">Lista 1</th>
+                            <th class="p-3">Lista 2</th>
+                            <th class="p-3">Lista 3</th>
+                            <th class="p-3">Lista 4</th>
+                            <th class="p-3">Actualizar Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-productos" class="divide-y">
+                        <!-- Carga dinámica -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let pedidosCache = [];
+        let productosCache = [];
+
+        function cambiarTab(tab) {
+            const secPed = document.getElementById('sec-pedidos');
+            const secProd = document.getElementById('sec-productos');
+            const btnPed = document.getElementById('btn-tab-pedidos');
+            const btnProd = document.getElementById('btn-tab-productos');
+
+            if(tab === 'pedidos') {
+                secPed.classList.remove('hidden');
+                secProd.classList.add('hidden');
+                btnPed.className = "pb-2 font-bold text-blue-600 border-b-2 border-blue-600";
+                btnProd.className = "pb-2 font-bold text-gray-500 hover:text-gray-700";
+                cargarPedidos();
+            } else {
+                secPed.classList.add('hidden');
+                secProd.classList.remove('hidden');
+                btnProd.className = "pb-2 font-bold text-blue-600 border-b-2 border-blue-600";
+                btnPed.className = "pb-2 font-bold text-gray-500 hover:text-gray-700";
+                cargarProductos();
+            }
+        }
+
+        // --- PEDIDOS ---
+        async function cargarPedidos() {
+            try {
+                const res = await fetch('/api/pedidos');
+                pedidosCache = await res.json();
+                renderizarPedidos(pedidosCache);
+            } catch(e) { console.error("Error cargando pedidos", e); }
+        }
+
+        function renderizarPedidos(lista) {
+            const tbody = document.getElementById('tabla-pedidos');
+            tbody.innerHTML = lista.map(p => `
+                <tr>
+                    <td class="p-3 font-bold">#${p.id}</td>
+                    <td class="p-3 font-semibold">${p.cliente}</td>
+                    <td class="p-3">Lista ${p.lista_precio}</td>
+                    <td class="p-3 text-xs max-w-xs">${p.detalle}</td>
+                    <td class="p-3">
+                        <select onchange="actualizarEstado(${p.id}, this.value)" class="border rounded p-1 text-xs">
+                            <option value="pendiente" ${p.estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                            <option value="en proceso" ${p.estado === 'en proceso' ? 'selected' : ''}>En proceso</option>
+                            <option value="entregado" ${p.estado === 'entregado' ? 'selected' : ''}>Entregado</option>
+                        </select>
+                    </td>
+                    <td class="p-3">
+                        <button onclick="eliminarPedido(${p.id})" class="bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600">Eliminar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filtrarPedidos() {
+            const busqueda = document.getElementById('buscar-pedido').value.toLowerCase();
+            const estado = document.getElementById('filtro-estado').value;
+
+            const filtrados = pedidosCache.filter(p => {
+                const coincideCliente = p.cliente.toLowerCase().includes(busqueda);
+                const coincideEstado = estado === '' || p.estado === estado;
+                return coincideCliente && coincideEstado;
+            });
+            renderizarPedidos(filtrados);
+        }
+
+        async function actualizarEstado(id, nuevoEstado) {
+            await fetch(`/api/pedidos/${id}/estado`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ estado: nuevoEstado })
+            });
+            cargarPedidos();
+        }
+
+        async function eliminarPedido(id) {
+            if(!confirm('¿Deseas eliminar este pedido?')) return;
+            await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
+            cargarPedidos();
+        }
+
+        // --- EXPORTACIÓN ---
+        function exportarExcel() {
+            if (pedidosCache.length === 0) return alert('No hay pedidos para exportar.');
+            const datosFormat = pedidosCache.map(p => ({
+                ID: p.id,
+                Cliente: p.cliente,
+                Lista: p.lista_precio,
+                Detalle: p.detalle,
+                Estado: p.estado
+            }));
+            const ws = XLSX.utils.json_to_sheet(datosFormat);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
+            XLSX.writeFile(wb, "Pedidos_Distribuidora.xlsx");
+        }
+
+        function exportarPDF() {
+            if (pedidosCache.length === 0) return alert('No hay pedidos para exportar.');
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Reporte de Pedidos - Distribuidora Don Vitorio", 14, 15);
+            
+            const columnas = ["# ID", "Cliente", "Lista", "Detalle", "Estado"];
+            const filas = pedidosCache.map(p => [p.id, p.cliente, `Lista ${p.lista_precio}`, p.detalle, p.estado]);
+
+            doc.autoTable({
+                startY: 22,
+                head: [columnas],
+                body: filas,
+                styles: { fontSize: 8 }
+            });
+
+            doc.save("Pedidos_Distribuidora.pdf");
+        }
+
+        // --- PRODUCTOS Y STOCK ---
+        async function cargarProductos() {
+            try {
+                const res = await fetch('/api/productos');
+                productosCache = await res.json();
+                renderizarProductos();
+            } catch(e) { console.error("Error cargando productos", e); }
+        }
+
+        function renderizarProductos() {
+            const tbody = document.getElementById('tabla-productos');
+            tbody.innerHTML = productosCache.map(prod => `
+                <tr>
+                    <td class="p-3 font-bold">#${prod.id}</td>
+                    <td class="p-3 font-semibold">${prod.nombre}</td>
+                    <td class="p-3">
+                        <input type="number" id="input-stock-${prod.id}" value="${prod.stock}" class="w-20 border rounded p-1 text-center font-bold">
+                    </td>
+                    <td class="p-3">$${prod.precio_1}</td>
+                    <td class="p-3">$${prod.precio_2}</td>
+                    <td class="p-3">$${prod.precio_3}</td>
+                    <td class="p-3">$${prod.precio_4}</td>
+                    <td class="p-3">
+                        <button onclick="guardarStock(${prod.id})" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded font-bold">
+                            Guardar Stock
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function guardarStock(id) {
+            const nuevoStock = parseInt(document.getElementById(`input-stock-${id}`).value);
+            if(isNaN(nuevoStock)) return alert('Ingresa un número de stock válido');
+
+            try {
+                const res = await fetch(`/api/productos/${id}/stock`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ stock: nuevoStock })
+                });
+
+                if(res.ok) {
+                    alert('¡Stock actualizado correctamente!');
+                    cargarProductos();
+                } else {
+                    alert('Error al guardar el stock');
+                }
+            } catch(e) { alert('Error de conexión'); }
+        }
+
+        async function crearProducto() {
             const nombre = document.getElementById('p-nombre').value.trim();
             const stock = parseInt(document.getElementById('p-stock').value) || 0;
             const precio_1 = parseFloat(document.getElementById('p-p1').value) || 0;
@@ -8,22 +284,31 @@ async function crearProducto() {
 
             if(!nombre) return alert('Por favor ingresa un nombre para el producto');
 
-            const res = await fetch('/api/productos', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ nombre, stock, precio_1, precio_2, precio_3, precio_4 })
-            });
+            try {
+                const res = await fetch('/api/productos', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ nombre, stock, precio_1, precio_2, precio_3, precio_4 })
+                });
 
-            if(res.ok) {
-                alert('¡Producto guardado con éxito!');
-                document.getElementById('p-nombre').value = '';
-                document.getElementById('p-stock').value = '';
-                document.getElementById('p-p1').value = '';
-                document.getElementById('p-p2').value = '';
-                document.getElementById('p-p3').value = '';
-                document.getElementById('p-p4').value = '';
-                cargarProductos();
-            } else {
-                alert('Error al guardar el producto.');
+                if(res.ok) {
+                    alert('¡Producto guardado con éxito!');
+                    document.getElementById('p-nombre').value = '';
+                    document.getElementById('p-stock').value = '';
+                    document.getElementById('p-p1').value = '';
+                    document.getElementById('p-p2').value = '';
+                    document.getElementById('p-p3').value = '';
+                    document.getElementById('p-p4').value = '';
+                    cargarProductos();
+                } else {
+                    alert('Error al guardar el producto.');
+                }
+            } catch(e) {
+                alert('Error de conexión con el servidor.');
             }
         }
+
+        cargarPedidos();
+    </script>
+</body>
+</html>
