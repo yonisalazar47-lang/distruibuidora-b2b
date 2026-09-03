@@ -8,7 +8,6 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
 
-    <!-- Navbar -->
     <nav class="bg-blue-700 text-white shadow-md print:hidden">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <h1 class="text-lg font-bold">Panel Administrador - Don Vitorio</h1>
@@ -16,10 +15,8 @@
         </div>
     </nav>
 
-    <!-- Contenido Principal -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
 
-        <!-- Navegación de Pestañas -->
         <div class="flex border-b border-gray-200 bg-white rounded-t-lg px-4 pt-2 space-x-2 print:hidden">
             <button id="tab-btn-productos" onclick="cambiarTab('productos')" class="py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none">
                 Gestión de Productos
@@ -29,7 +26,7 @@
             </button>
         </div>
 
-        <!-- SECCIÓN 1: GESTIÓN DE PRODUCTOS -->
+        <!-- SECCIÓN PRODUCTOS -->
         <div id="tab-productos" class="space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Cargar Nuevo Producto</h2>
@@ -85,7 +82,7 @@
             </div>
         </div>
 
-        <!-- SECCIÓN 2: HISTORIAL Y CONTROL DE PEDIDOS -->
+        <!-- SECCIÓN PEDIDOS -->
         <div id="tab-pedidos" class="hidden space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4 print:hidden">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Filtros de Búsqueda</h2>
@@ -110,12 +107,8 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
                     <h2 class="text-lg font-bold text-gray-800">Lista de Pedidos</h2>
                     <div class="flex space-x-2 print:hidden">
-                        <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center gap-1">
-                            📊 Exportar Excel
-                        </button>
-                        <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center gap-1">
-                            📄 Exportar PDF / Imprimir
-                        </button>
+                        <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded transition">📊 Exportar Excel</button>
+                        <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-1.5 rounded transition">📄 Imprimir PDF</button>
                     </div>
                 </div>
 
@@ -149,6 +142,7 @@
                 document.getElementById('tab-pedidos').classList.add('hidden');
                 document.getElementById('tab-btn-productos').className = "py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none";
                 document.getElementById('tab-btn-pedidos').className = "py-2 px-4 font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none";
+                cargarProductosAdmin();
             } else {
                 document.getElementById('tab-productos').classList.add('hidden');
                 document.getElementById('tab-pedidos').classList.remove('hidden');
@@ -158,44 +152,33 @@
             }
         }
 
-        // Helper para obtener precios probando todos los nombres de clave posibles
-        function obtenerPrecio(p, num) {
-            const val = p[`precio_${num}`] ?? p[`precio${num}`] ?? p[`p${num}`] ?? (Array.isArray(p.precios) ? p.precios[num-1] : undefined);
-            return val !== undefined && val !== null ? val : '0';
+        function extraerPrecio(p, num) {
+            const v = p[`precio_${num}`] ?? p[`precio${num}`] ?? p[`p${num}`] ?? (Array.isArray(p.precios) ? p.precios[num-1] : undefined);
+            return (v !== undefined && v !== null && !isNaN(v)) ? Number(v).toFixed(2) : '0.00';
         }
 
         async function cargarProductosAdmin() {
             try {
-                // Intenta cargar desde la API estándar de productos
-                let res = await fetch('/api/productos');
-                if (!res.ok) res = await fetch('/api/productos-admin');
-                
+                const res = await fetch('/api/productos');
                 const productos = await res.json();
-                console.log("Productos recibidos:", productos);
-
                 const tbody = document.getElementById('tabla-productos-body');
                 tbody.innerHTML = '';
                 
                 productos.forEach(p => {
-                    const p1 = obtenerPrecio(p, 1);
-                    const p2 = obtenerPrecio(p, 2);
-                    const p3 = obtenerPrecio(p, 3);
-                    const p4 = obtenerPrecio(p, 4);
-
                     tbody.innerHTML += `
                         <tr class="border-b hover:bg-gray-50">
                             <td class="p-3 font-bold">${p.id || p.id_producto || '-'}</td>
                             <td class="p-3 font-medium">${p.nombre || p.producto || 'Sin Nombre'}</td>
                             <td class="p-3">${p.stock ?? 0}</td>
-                            <td class="p-3 text-blue-600">$${p1}</td>
-                            <td class="p-3 text-blue-600">$${p2}</td>
-                            <td class="p-3 text-blue-600">$${p3}</td>
-                            <td class="p-3 text-blue-600">$${p4}</td>
+                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 1)}</td>
+                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 2)}</td>
+                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 3)}</td>
+                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 4)}</td>
                         </tr>
                     `;
                 });
             } catch(e) {
-                console.error("Error al cargar productos", e);
+                console.error("Error productos:", e);
             }
         }
 
@@ -233,14 +216,11 @@
         async function cargarPedidos() {
             try {
                 const res = await fetch('/api/pedidos');
-                if (!res.ok) throw new Error("Error en la respuesta de la red");
                 pedidosOriginales = await res.json();
-                console.log("Pedidos recibidos:", pedidosOriginales);
                 aplicarFiltrosPedidos();
             } catch(e) {
-                console.error("Error al cargar pedidos", e);
-                const tbody = document.getElementById('tabla-pedidos-body');
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500 font-bold">Error de conexión al cargar los pedidos. Revisa la consola.</td></tr>`;
+                console.error("Error pedidos:", e);
+                document.getElementById('tabla-pedidos-body').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500 font-bold">Error de conexión al obtener pedidos.</td></tr>`;
             }
         }
 
@@ -274,7 +254,7 @@
             tbody.innerHTML = '';
 
             if (!pedidos || pedidos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos registrados.</td></tr>`;
                 return;
             }
 
@@ -326,52 +306,35 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ estado: nuevoEstado })
                 });
-                if(res.ok) {
-                    cargarPedidos();
-                }
+                if(res.ok) cargarPedidos();
             } catch(e) {
                 alert('Error al actualizar estado');
             }
         }
 
         async function eliminarPedido(id) {
-            if(!confirm('¿Seguro que deseas eliminar este pedido? El stock será devuelto automáticamente.')) return;
+            if(!confirm('¿Eliminar pedido?')) return;
             try {
                 const res = await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
-                if(res.ok) {
-                    cargarPedidos();
-                }
+                if(res.ok) cargarPedidos();
             } catch(e) {
                 alert('Error al eliminar el pedido');
             }
         }
 
         function exportarExcel() {
-            if (pedidosFiltradosActuales.length === 0) {
-                alert("No hay pedidos para exportar.");
-                return;
-            }
-
-            let csvContent = "data:text/csv;charset=utf-8,ID,Cliente/Comercio,Lista de Precio,Detalle,Estado\n";
-
+            if (!pedidosFiltradosActuales.length) return alert("No hay datos");
+            let csv = "data:text/csv;charset=utf-8,ID,Cliente,Lista,Detalle,Estado\n";
             pedidosFiltradosActuales.forEach(p => {
-                const detalleLimpio = `"${(p.detalle || '').replace(/"/g, '""')}"`;
-                const clienteLimpio = `"${(p.cliente || p.comercio || '').replace(/"/g, '""')}"`;
-                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio || p.lista || 1},${detalleLimpio},${p.estado || 'Pendiente'}\n`;
+                csv += `${p.id},"${p.cliente || ''}",Lista ${p.lista_precio || 1},"${(p.detalle || '').replace(/"/g, '""')}",${p.estado || 'Pendiente'}\n`;
             });
-
-            const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `pedidos_don_vitorio_${new Date().toISOString().slice(0,10)}.csv`);
-            document.body.appendChild(link);
+            link.href = encodeURI(csv);
+            link.download = `pedidos_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
-            document.body.removeChild(link);
         }
 
-        function exportarPDF() {
-            window.print();
-        }
+        function exportarPDF() { window.print(); }
 
         cargarProductosAdmin();
     </script>
