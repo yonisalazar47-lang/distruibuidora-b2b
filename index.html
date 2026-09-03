@@ -10,8 +10,8 @@ async function enviarPedido() {
         return;
     }
 
-    // Coloca aquí tu número con código de país (sin el signo + ni espacios)
-    // Ejemplo para Argentina: 5491112345678
+    // ⚠️ REEMPLAZA ESTE NÚMERO POR TU NÚMERO REAL DE WHATSAPP CON CÓDIGO DE PAÍS ⚠️
+    // Ejemplo Argentina: 5492984746691 (Sin el signo + y sin guiones)
     const MI_WHATSAPP = "5492984746691"; 
 
     const total = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
@@ -30,27 +30,23 @@ async function enviarPedido() {
         });
 
         if (res.ok) {
-            // Arma el mensaje con saltos de línea para WhatsApp
+            // Construir texto formateado para WhatsApp
             let mensajeWA = `🛒 *NUEVO PEDIDO B2B*\n`;
             mensajeWA += `👤 *Cliente:* ${cliente}\n`;
-            mensajeWA += `📋 *Lista de precio:* #${numLista}\n\n`;
-            mensajeWA += `*Detalle del pedido:*\n`;
+            mensajeWA += `📋 *Lista:* #${numLista}\n\n`;
+            mensajeWA += `*Detalle:*\n`;
             carrito.forEach(i => {
                 mensajeWA += `• ${i.cantidad}x ${i.nombre} - $${(i.precio * i.cantidad).toFixed(2)}\n`;
             });
             mensajeWA += `\n💰 *TOTAL:* $${total.toFixed(2)}`;
 
-            // Redirige o abre la app de WhatsApp
-            const urlWA = `https://wa.me/${MI_WHATSAPP}?text=${encodeURIComponent(mensajeWA)}`;
+            // URL directa api.whatsapp.com para evitar bloqueos
+            const urlWA = `https://api.whatsapp.com/send?phone=${MI_WHATSAPP}&text=${encodeURIComponent(mensajeWA)}`;
             
-            alert('¡Pedido registrado! Serás redirigido a WhatsApp para confirmar.');
+            // Redirigir en la misma pestaña
             window.location.href = urlWA;
-
-            carrito = [];
-            document.getElementById('nombre-cliente').value = '';
-            renderizarCarrito();
         } else {
-            alert('Ocurrió un error al enviar el pedido.');
+            alert('Ocurrió un error al registrar el pedido.');
         }
     } catch (e) {
         alert('Error de conexión al enviar el pedido.');
