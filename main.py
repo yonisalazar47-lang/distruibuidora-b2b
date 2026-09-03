@@ -54,9 +54,9 @@ def startup_event():
     
     cursor.execute("SELECT COUNT(*) as total FROM productos")
     if cursor.fetchone()["total"] == 0:
-        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('Harina 1kg', 100, 1000.0, 800.0, 700.0, 600.0)")
-        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('COCA COLA 2LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
-        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('SPRITE 2.25 LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('Harina 1kg', 100, 1000.0, 900.0, 800.0, 700.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('COCA COLA 2LT', 1000, 3500.0, 3300.0, 3100.0, 2900.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('SPRITE 2.25 LT', 1000, 3500.0, 3300.0, 3100.0, 2900.0)")
     
     conn.commit()
     cursor.close()
