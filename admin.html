@@ -231,13 +231,17 @@
             }
         }
 
+        function normalizarTexto(str) {
+            return (str || '').toString().toLowerCase().trim();
+        }
+
         function aplicarFiltrosPedidos() {
-            const clienteFiltro = document.getElementById('filtro-cliente').value.toLowerCase().trim();
-            const estadoFiltro = document.getElementById('filtro-estado').value.toLowerCase().trim();
+            const clienteFiltro = normalizarTexto(document.getElementById('filtro-cliente').value);
+            const estadoFiltro = normalizarTexto(document.getElementById('filtro-estado').value);
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
-                const clientePedido = (p.cliente || '').toLowerCase();
-                const estadoPedido = (p.estado || '').toLowerCase().trim();
+                const clientePedido = normalizarTexto(p.cliente);
+                const estadoPedido = normalizarTexto(p.estado);
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
                 const coincideEstado = (estadoFiltro === 'todos') || (estadoPedido === estadoFiltro);
@@ -252,13 +256,13 @@
             const tbody = document.getElementById('tabla-pedidos-body');
             tbody.innerHTML = '';
 
-            if (pedidos.length === 0) {
+            if (!pedidos || pedidos.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos con los filtros aplicados.</td></tr>`;
                 return;
             }
 
             pedidos.forEach(p => {
-                const estadoLimpio = (p.estado || '').toLowerCase().trim();
+                const estadoLimpio = normalizarTexto(p.estado);
                 let badgeColor = "bg-yellow-100 text-yellow-800";
                 if(estadoLimpio === 'procesando') badgeColor = "bg-blue-100 text-blue-800";
                 if(estadoLimpio === 'entregado') badgeColor = "bg-green-100 text-green-800";
