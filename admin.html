@@ -219,21 +219,16 @@
             }
         }
 
-        function obtenerEstadoSeguro(pedido) {
-            const val = pedido.estado || pedido.estado_pedido || pedido.status || 'pendiente';
-            return String(val).toLowerCase().trim();
-        }
-
         function aplicarFiltrosPedidos() {
             const clienteFiltro = String(document.getElementById('filtro-cliente').value || '').toLowerCase().trim();
             const estadoFiltro = String(document.getElementById('filtro-estado').value || '').toLowerCase().trim();
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
                 const clientePedido = String(p.cliente || p.comercio || '').toLowerCase().trim();
-                const estadoPedido = obtenerEstadoSeguro(p);
+                const estadoBruto = String(p.estado || p.estado_pedido || p.status || '').toLowerCase().trim();
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
-                const coincideEstado = (estadoFiltro === 'todos') || (estadoPedido.includes(estadoFiltro));
+                const coincideEstado = (estadoFiltro === 'todos') || estadoBruto.startsWith(estadoFiltro) || estadoFiltro.startsWith(estadoBruto);
 
                 return coincideCliente && coincideEstado;
             });
@@ -251,10 +246,15 @@
             }
 
             pedidos.forEach(p => {
-                const estadoLimpio = obtenerEstadoSeguro(p);
+                const est = String(p.estado || p.estado_pedido || p.status || 'pendiente').toLowerCase().trim();
+                
+                let esPendiente = est.startsWith('pen') || est === 'pendiente';
+                let esProcesando = est.startsWith('pro') || est === 'procesando';
+                let esEntregado = est.startsWith('ent') || est === 'entregado';
+
                 let badgeColor = "bg-yellow-100 text-yellow-800";
-                if(estadoLimpio.includes('procesando')) badgeColor = "bg-blue-100 text-blue-800";
-                if(estadoLimpio.includes('entregado')) badgeColor = "bg-green-100 text-green-800";
+                if(esProcesando) badgeColor = "bg-blue-100 text-blue-800";
+                if(esEntregado) badgeColor = "bg-green-100 text-green-800";
 
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
@@ -264,9 +264,9 @@
                         <td class="p-3 text-xs text-gray-600">${p.detalle || ''}</td>
                         <td class="p-3">
                             <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
-                                <option value="pendiente" ${estadoLimpio.includes('pendiente') ? 'selected' : ''}>Pendiente</option>
-                                <option value="procesando" ${estadoLimpio.includes('procesando') ? 'selected' : ''}>Procesando</option>
-                                <option value="entregado" ${estadoLimpio.includes('entregado') ? 'selected' : ''}>Entregado</option>
+                                <option value="Pendiente" ${esPendiente ? 'selected' : ''}>Pendiente</option>
+                                <option value="Procesando" ${esProcesando ? 'selected' : ''}>Procesando</option>
+                                <option value="Entregado" ${esEntregado ? 'selected' : ''}>Entregado</option>
                             </select>
                         </td>
                         <td class="p-3 print:hidden">
@@ -315,7 +315,7 @@
             pedidosFiltradosActuales.forEach(p => {
                 const detalleLimpio = `"${(p.detalle || '').replace(/"/g, '""')}"`;
                 const clienteLimpio = `"${(p.cliente || p.comercio || '').replace(/"/g, '""')}"`;
-                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio || p.lista || 1},${detalleLimpio},${obtenerEstadoSeguro(p)}\n`;
+                csvContent += `${p.id},${clienteLimpio},Lista ${p.lista_precio || p.lista || 1},${detalleLimpio},${p.estado || 'Pendiente'}\n`;
             });
 
             const encodedUri = encodeURI(csvContent);
