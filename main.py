@@ -29,18 +29,30 @@ def startup_event():
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Crear tabla de productos si no existe
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS productos (
             id SERIAL PRIMARY KEY,
             nombre TEXT NOT NULL,
             stock INTEGER NOT NULL,
-            precio_1 REAL NOT NULL,
-            precio_2 REAL NOT NULL,
-            precio_3 REAL NOT NULL,
-            precio_4 REAL NOT NULL
+            precio_1 REAL NOT NULL DEFAULT 0,
+            precio_2 REAL NOT NULL DEFAULT 0,
+            precio_3 REAL NOT NULL DEFAULT 0,
+            precio_4 REAL NOT NULL DEFAULT 0
         )
     """)
     
+    # Asegurar que existan las columnas de precios por si la tabla ya existía
+    for col in ["precio_1", "precio_2", "precio_3", "precio_4"]:
+        cursor.execute(f"""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='productos'وراق column_name='{col}') THEN
+                    ALTER TABLE productos ADD COLUMN {col} REAL NOT NULL DEFAULT 0;
+                END IF;
+            END $$;
+        """)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id SERIAL PRIMARY KEY,
@@ -54,9 +66,9 @@ def startup_event():
     
     cursor.execute("SELECT COUNT(*) as total FROM productos")
     if cursor.fetchone()["total"] == 0:
-        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('Harina 1kg', 100, 1000.0, 900.0, 800.0, 700.0)")
-        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('COCA COLA 2LT', 1000, 3500.0, 3300.0, 3100.0, 2900.0)")
-        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('SPRITE 2.25 LT', 1000, 3500.0, 3300.0, 3100.0, 2900.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('Harina 1kg', 100, 1000.0, 800.0, 700.0, 600.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('COCA COLA 2LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
+        cursor.execute("INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES ('SPRITE 2.25 LT', 1000, 3500.0, 3300.0, 3200.0, 3100.0)")
     
     conn.commit()
     cursor.close()
