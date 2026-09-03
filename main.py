@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -17,7 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuración de base de datos PostgreSQL
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
@@ -37,7 +35,6 @@ class StockUpdate(BaseModel):
 class EstadoUpdate(BaseModel):
     estado: str
 
-# Endpoints de Productos
 @app.get("/api/productos")
 def listar_productos():
     conn = get_db_connection()
@@ -78,7 +75,6 @@ def actualizar_stock(producto_id: int, stock_data: StockUpdate):
     conn.close()
     return {"mensaje": "Stock actualizado"}
 
-# Endpoints de Pedidos
 @app.get("/api/pedidos")
 def listar_pedidos():
     conn = get_db_connection()
@@ -112,5 +108,4 @@ def eliminar_pedido(pedido_id: int):
     conn.close()
     return {"mensaje": "Pedido eliminado"}
 
-# Montar archivos estáticos al final
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
