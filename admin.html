@@ -68,10 +68,10 @@
 
         <!-- SECCIÓN PRODUCTOS Y STOCK -->
         <section id="sec-productos" class="space-y-6 hidden">
-            <!-- Formulario Nuevo Producto (4 Precios + Stock) -->
+            <!-- Formulario Nuevo Producto (Exactamente 4 Precios + Stock) -->
             <div class="bg-white p-4 rounded-lg shadow space-y-3">
                 <h2 class="font-bold text-gray-800">Agregar Nuevo Producto</h2>
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                     <input type="text" id="p-nombre" placeholder="Nombre" class="border p-2 rounded text-sm col-span-2">
                     <input type="number" id="p-stock" placeholder="Stock Inicial" class="border p-2 rounded text-sm">
                     <input type="number" step="0.01" id="p-p1" placeholder="Precio L1" class="border p-2 rounded text-sm">
@@ -130,7 +130,6 @@
             }
         }
 
-        // --- PEDIDOS ---
         async function cargarPedidos() {
             try {
                 const res = await fetch('/api/pedidos');
@@ -188,7 +187,6 @@
             cargarPedidos();
         }
 
-        // --- EXPORTACIÓN ---
         function exportarExcel() {
             if (pedidosCache.length === 0) return alert('No hay pedidos para exportar.');
             const datosFormat = pedidosCache.map(p => ({
@@ -223,7 +221,6 @@
             doc.save("Pedidos_Distribuidora.pdf");
         }
 
-        // --- PRODUCTOS Y STOCK ---
         async function cargarProductos() {
             try {
                 const res = await fetch('/api/productos');
