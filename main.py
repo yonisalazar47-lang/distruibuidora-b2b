@@ -47,20 +47,24 @@ def listar_productos():
 
 @app.post("/api/productos")
 def crear_producto(prod: ProductoCreate):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) 
-        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-        """,
-        (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4)
-    )
-    nuevo_id = cur.fetchone()["id"]
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {"id": nuevo_id, "mensaje": "Producto creado con éxito"}
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) 
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            """,
+            (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4)
+        )
+        nuevo_id = cur.fetchone()["id"]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"id": nuevo_id, "mensaje": "Producto creado con éxito"}
+    except Exception as e:
+        # Esto te mostrará el error exacto de PostgreSQL en la alerta del navegador
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/productos/{producto_id}/stock")
 def actualizar_stock(producto_id: int, stock_data: StockUpdate):
