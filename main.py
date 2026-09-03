@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, Any
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -36,10 +37,10 @@ class EstadoUpdate(BaseModel):
     estado: str
 
 class PedidoCreate(BaseModel):
-    cliente_nombre: str
-    detalle: str
-    lista_precio: str
-    estado: str = "Pendiente"
+    cliente_nombre: Optional[str] = "Cliente General"
+    detalle: Optional[str] = ""
+    lista_precio: Optional[Any] = "1"
+    estado: Optional[str] = "Pendiente"
 
 @app.get("/api/productos")
 def listar_productos():
@@ -104,12 +105,19 @@ def crear_pedido(pedido: PedidoCreate):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # Nos aseguramos de castear a texto/string de forma segura
+        c_nombre = str(pedido.cliente_nombre or "Cliente General")
+        c_detalle = str(pedido.detalle or "")
+        c_lista = str(pedido.lista_precio or "1")
+        c_estado = str(pedido.estado or "Pendiente")
+
         cur.execute(
             """
             INSERT INTO pedidos (cliente_nombre, detalle, lista_precio, estado) 
             VALUES (%s, %s, %s, %s) RETURNING id
             """,
-            (pedido.cliente_nombre, pedido.detalle, str(pedido.lista_precio), pedido.estado)
+            (c_nombre, c_detalle, c_lista, c_estado)
         )
         nuevo_id = cur.fetchone()["id"]
         conn.commit()
