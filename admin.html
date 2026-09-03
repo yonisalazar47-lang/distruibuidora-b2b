@@ -1,313 +1,80 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Administración - Distribuidora Don Vitorio</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from typing import Optional
+import sqlite3
+import os
 
-    <!-- Navbar -->
-    <nav class="bg-blue-700 text-white shadow-md print:hidden">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 class="text-lg font-bold">Panel Administrador - Don Vitorio</h1>
-            <a href="/" class="text-xs bg-blue-800 hover:bg-blue-900 px-3 py-1.5 rounded transition">Ver Portal Clientes</a>
-        </div>
-    </nav>
+app = FastAPI()
 
-    <!-- Contenido Principal -->
-    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+# Modelo para los datos del producto
+class Producto(BaseModel):
+    nombre: str
+    stock: int
+    precio_1: float
+    precio_2: Optional[float] = 0.0
+    precio_3: Optional[float] = 0.0
+    precio_4: Optional[float] = 0.0
 
-        <!-- Navegación de Pestañas -->
-        <div class="flex border-b border-gray-200 bg-white rounded-t-lg px-4 pt-2 space-x-2 print:hidden">
-            <button id="tab-btn-productos" onclick="cambiarTab('productos')" class="py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none">
-                Gestión de Productos
-            </button>
-            <button id="tab-btn-pedidos" onclick="cambiarTab('pedidos')" class="py-2 px-4 font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none">
-                Historial y Control de Pedidos
-            </button>
-        </div>
+# Modelo para actualizar estado de pedidos
+class EstadoPedido(BaseModel):
+    estado: str
 
-        <!-- SECCIÓN 1: GESTIÓN DE PRODUCTOS -->
-        <div id="tab-productos" class="space-y-6">
-            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
-                <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Cargar Nuevo Producto</h2>
-                <form id="form-producto" onsubmit="guardarProducto(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Nombre del Producto</label>
-                        <input type="text" id="p-nombre" required class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Stock Inicial</label>
-                        <input type="number" id="p-stock" required min="0" class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Precio Base</label>
-                        <input type="number" step="0.01" id="p-p1" required min="0" class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div class="sm:col-span-2 md:col-span-3">
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-sm transition">Guardar Producto</button>
-                    </div>
-                </form>
-            </div>
+def get_db_connection():
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
-                <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Catálogo Registrado</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-100 text-gray-700 uppercase text-xs">
-                            <tr>
-                                <th class="p-3">ID</th>
-                                <th class="p-3">Producto</th>
-                                <th class="p-3">Stock</th>
-                                <th class="p-3">Precio Base</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-productos-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+# --- RUTAS DE API ---
 
-        <!-- SECCIÓN 2: HISTORIAL Y CONTROL DE PEDIDOS -->
-        <div id="tab-pedidos" class="hidden space-y-6">
-            <div class="bg-white p-6 rounded-lg shadow-md space-y-4 print:hidden">
-                <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Filtros de Búsqueda</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Buscar por Comercio / Cliente</label>
-                        <input type="text" id="filtro-cliente" oninput="aplicarFiltrosPedidos()" placeholder="Escribe el nombre del comercio..." class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Filtrar por Estado</label>
-                        <select id="filtro-estado" onchange="aplicarFiltrosPedidos()" class="w-full border p-2 rounded text-sm mt-1">
-                            <option value="todos" selected>Todos los estados</option>
-                            <option value="pendiente">Pendiente</option>
-                            <option value="procesando">Procesando</option>
-                            <option value="entregado">Entregado</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+@app.get("/api/productos")
+def obtener_productos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM productos")
+    productos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return productos
 
-            <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
-                    <h2 class="text-lg font-bold text-gray-800">Lista de Pedidos</h2>
-                    <div class="flex space-x-2 print:hidden">
-                        <button onclick="exportarExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded transition">📊 Exportar Excel</button>
-                        <button onclick="exportarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-1.5 rounded transition">📄 Imprimir PDF</button>
-                    </div>
-                </div>
+@app.post("/api/productos")
+def crear_producto(prod: Producto):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (?, ?, ?, ?, ?, ?)",
+        (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4)
+    )
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-100 text-gray-700 uppercase text-xs">
-                            <tr>
-                                <th class="p-3"># ID</th>
-                                <th class="p-3">Cliente / Comercio</th>
-                                <th class="p-3">Lista</th>
-                                <th class="p-3">Detalle del Pedido</th>
-                                <th class="p-3">Estado</th>
-                                <th class="p-3 print:hidden">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-pedidos-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+@app.get("/api/pedidos")
+def obtener_pedidos():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM pedidos ORDER BY id DESC")
+    pedidos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return pedidos
 
-    </main>
+@app.put("/api/pedidos/{pedido_id}/estado")
+def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado_data.estado, pedido_id))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
-    <script>
-        let pedidosOriginales = [];
-        let pedidosFiltradosActuales = [];
+@app.delete("/api/pedidos/{pedido_id}")
+def eliminar_pedido(pedido_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
-        function cambiarTab(tab) {
-            if (tab === 'productos') {
-                document.getElementById('tab-productos').classList.remove('hidden');
-                document.getElementById('tab-pedidos').classList.add('hidden');
-                document.getElementById('tab-btn-productos').className = "py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none";
-                document.getElementById('tab-btn-pedidos').className = "py-2 px-4 font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none";
-                cargarProductosAdmin();
-            } else {
-                document.getElementById('tab-productos').classList.add('hidden');
-                document.getElementById('tab-pedidos').classList.remove('hidden');
-                document.getElementById('tab-btn-pedidos').className = "py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none";
-                document.getElementById('tab-btn-productos').className = "py-2 px-4 font-bold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none";
-                cargarPedidos();
-            }
-        }
-
-        async function cargarProductosAdmin() {
-            try {
-                const res = await fetch('/api/productos');
-                const productos = await res.json();
-                const tbody = document.getElementById('tabla-productos-body');
-                tbody.innerHTML = '';
-                
-                productos.forEach(p => {
-                    // Extrae el precio único o la propiedad precio
-                    const valPrecio = p.precio ?? p.precio_1 ?? p.p1 ?? 0;
-                    const precioFormat = Number(valPrecio).toFixed(2);
-
-                    tbody.innerHTML += `
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="p-3 font-bold">${p.id}</td>
-                            <td class="p-3 font-medium">${p.nombre}</td>
-                            <td class="p-3">${p.stock ?? 0}</td>
-                            <td class="p-3 text-blue-600 font-bold">$${precioFormat}</td>
-                        </tr>
-                    `;
-                });
-            } catch(e) {
-                console.error("Error productos:", e);
-            }
-        }
-
-        async function guardarProducto(e) {
-            e.preventDefault();
-            const body = {
-                nombre: document.getElementById('p-nombre').value,
-                stock: parseInt(document.getElementById('p-stock').value),
-                precio: parseFloat(document.getElementById('p-p1').value)
-            };
-
-            try {
-                const res = await fetch('/api/productos', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(body)
-                });
-                if(res.ok) {
-                    alert('Producto guardado correctamente');
-                    document.getElementById('form-producto').reset();
-                    cargarProductosAdmin();
-                }
-            } catch(err) {
-                alert('Error de conexión');
-            }
-        }
-
-        async function cargarPedidos() {
-            try {
-                const res = await fetch('/api/pedidos');
-                pedidosOriginales = await res.json();
-                aplicarFiltrosPedidos();
-            } catch(e) {
-                console.error("Error pedidos:", e);
-            }
-        }
-
-        function aplicarFiltrosPedidos() {
-            const clienteFiltro = String(document.getElementById('filtro-cliente').value || '').toLowerCase().trim();
-            const estadoFiltro = String(document.getElementById('filtro-estado').value || '').toLowerCase().trim();
-
-            pedidosFiltradosActuales = pedidosOriginales.filter(p => {
-                const clientePedido = String(p.cliente || '').toLowerCase().trim();
-                const estadoPedido = String(p.estado || '').toLowerCase().trim();
-
-                const coincideCliente = clientePedido.includes(clienteFiltro);
-                
-                let coincideEstado = (estadoFiltro === 'todos');
-                if (!coincideEstado) {
-                    if (estadoFiltro === 'pendiente') {
-                        coincideEstado = (estadoPedido === '' || estadoPedido === 'pendiente' || estadoPedido.includes('pen'));
-                    } else {
-                        coincideEstado = estadoPedido.includes(estadoFiltro);
-                    }
-                }
-
-                return coincideCliente && coincideEstado;
-            });
-
-            renderizarTablaPedidos(pedidosFiltradosActuales);
-        }
-
-        function renderizarTablaPedidos(pedidos) {
-            const tbody = document.getElementById('tabla-pedidos-body');
-            tbody.innerHTML = '';
-
-            if (!pedidos || pedidos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos.</td></tr>`;
-                return;
-            }
-
-            pedidos.forEach(p => {
-                const estVal = String(p.estado || 'pendiente').trim();
-                const estLower = estVal.toLowerCase();
-
-                let badgeColor = "bg-yellow-100 text-yellow-800";
-                let opcionSeleccionada = "Pendiente";
-
-                if (estLower.includes('pro')) {
-                    badgeColor = "bg-blue-100 text-blue-800";
-                    opcionSeleccionada = "Procesando";
-                } else if (estLower.includes('ent')) {
-                    badgeColor = "bg-green-100 text-green-800";
-                    opcionSeleccionada = "Entregado";
-                }
-
-                tbody.innerHTML += `
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="p-3 font-bold">#${p.id}</td>
-                        <td class="p-3 font-medium">${p.cliente || 'Cliente'}</td>
-                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${p.lista_precio || 1}</td>
-                        <td class="p-3 text-xs text-gray-600">${p.detalle || ''}</td>
-                        <td class="p-3">
-                            <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
-                                <option value="Pendiente" ${opcionSeleccionada === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                                <option value="Procesando" ${opcionSeleccionada === 'Procesando' ? 'selected' : ''}>Procesando</option>
-                                <option value="Entregado" ${opcionSeleccionada === 'Entregado' ? 'selected' : ''}>Entregado</option>
-                            </select>
-                        </td>
-                        <td class="p-3 print:hidden">
-                            <button onclick="eliminarPedido(${p.id})" class="text-red-600 hover:underline text-xs font-bold">Eliminar</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        async function actualizarEstado(id, nuevoEstado) {
-            try {
-                const res = await fetch(`/api/pedidos/${id}/estado`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ estado: nuevoEstado })
-                });
-                if(res.ok) cargarPedidos();
-            } catch(e) {
-                alert('Error al actualizar estado');
-            }
-        }
-
-        async function eliminarPedido(id) {
-            if(!confirm('¿Eliminar pedido?')) return;
-            try {
-                const res = await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
-                if(res.ok) cargarPedidos();
-            } catch(e) {
-                alert('Error al eliminar el pedido');
-            }
-        }
-
-        function exportarExcel() {
-            if (!pedidosFiltradosActuales.length) return alert("No hay pedidos");
-            let csv = "data:text/csv;charset=utf-8,ID,Cliente,Lista,Detalle,Estado\n";
-            pedidosFiltradosActuales.forEach(p => {
-                csv += `${p.id},"${p.cliente || ''}",Lista ${p.lista_precio || 1},"${(p.detalle || '').replace(/"/g, '""')}",${p.estado || 'Pendiente'}\n`;
-            });
-            const link = document.createElement("a");
-            link.href = encodeURI(csv);
-            link.download = `pedidos_${new Date().toISOString().slice(0,10)}.csv`;
-            link.click();
-        }
-
-        function exportarPDF() { window.print(); }
-
-        cargarProductosAdmin();
-    </script>
-</body>
-</html>
+# Sirve los archivos estáticos HTML
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
