@@ -1,80 +1,122 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from typing import Optional
-import sqlite3
-import os
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <h1 class="text-2xl font-bold">Panel Administrador</h1>
 
-app = FastAPI()
+        <!-- Pestañas -->
+        <div class="flex space-x-4 border-b pb-2">
+            <button onclick="verTab('productos')" class="font-bold text-blue-600">Productos</button>
+            <button onclick="verTab('pedidos')" class="font-bold text-gray-600">Pedidos</button>
+        </div>
 
-# Modelo para los datos del producto
-class Producto(BaseModel):
-    nombre: str
-    stock: int
-    precio_1: float
-    precio_2: Optional[float] = 0.0
-    precio_3: Optional[float] = 0.0
-    precio_4: Optional[float] = 0.0
+        <!-- PRODUCTOS -->
+        <div id="tab-productos">
+            <h2 class="text-lg font-bold mb-2">Lista de Productos</h2>
+            <table class="w-full bg-white rounded shadow text-left">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="p-2">ID</th>
+                        <th class="p-2">Nombre</th>
+                        <th class="p-2">Stock</th>
+                        <th class="p-2">Precio</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-prod"></tbody>
+            </table>
+        </div>
 
-# Modelo para actualizar estado de pedidos
-class EstadoPedido(BaseModel):
-    estado: str
+        <!-- PEDIDOS -->
+        <div id="tab-pedidos" class="hidden space-y-4">
+            <div class="flex space-x-4">
+                <input type="text" id="buscar-cliente" oninput="filtrarPedidos()" placeholder="Buscar cliente..." class="border p-2 rounded w-1/2">
+                <select id="filtro-estado" onchange="filtrarPedidos()" class="border p-2 rounded">
+                    <option value="todos">Todos los estados</option>
+                    <option value="pendiente">Pendientes</option>
+                    <option value="entregado">Entregados</option>
+                    <option value="procesando">En proceso</option>
+                </select>
+            </div>
 
-def get_db_connection():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+            <table class="w-full bg-white rounded shadow text-left">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="p-2"># ID</th>
+                        <th class="p-2">Cliente</th>
+                        <th class="p-2">Lista</th>
+                        <th class="p-2">Detalle</th>
+                        <th class="p-2">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-pedidos"></tbody>
+            </table>
+        </div>
+    </div>
 
-# --- RUTAS DE API ---
+    <script>
+        let pedidos = [];
 
-@app.get("/api/productos")
-def obtener_productos():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM productos")
-    productos = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return productos
+        function verTab(tab) {
+            document.getElementById('tab-productos').classList.toggle('hidden', tab !== 'productos');
+            document.getElementById('tab-pedidos').classList.toggle('hidden', tab !== 'pedidos');
+            if (tab === 'productos') cargarProductos();
+            if (tab === 'pedidos') cargarPedidos();
+        }
 
-@app.post("/api/productos")
-def crear_producto(prod: Producto):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO productos (nombre, stock, precio_1, precio_2, precio_3, precio_4) VALUES (?, ?, ?, ?, ?, ?)",
-        (prod.nombre, prod.stock, prod.precio_1, prod.precio_2, prod.precio_3, prod.precio_4)
-    )
-    conn.commit()
-    conn.close()
-    return {"ok": True}
+        async function cargarProductos() {
+            const res = await fetch('/api/productos');
+            const data = await res.json();
+            const tbody = document.getElementById('tabla-prod');
+            tbody.innerHTML = data.map(p => `
+                <tr class="border-b">
+                    <td class="p-2">${p.id}</td>
+                    <td class="p-2">${p.nombre}</td>
+                    <td class="p-2">${p.stock}</td>
+                    <td class="p-2">$${p.precio ?? p.precio_1 ?? 0}</td>
+                </tr>
+            `).join('');
+        }
 
-@app.get("/api/pedidos")
-def obtener_pedidos():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM pedidos ORDER BY id DESC")
-    pedidos = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return pedidos
+        async function cargarPedidos() {
+            const res = await fetch('/api/pedidos');
+            pedidos = await res.json();
+            filtrarPedidos();
+        }
 
-@app.put("/api/pedidos/{pedido_id}/estado")
-def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (estado_data.estado, pedido_id))
-    conn.commit()
-    conn.close()
-    return {"ok": True}
+        function filtrarPedidos() {
+            const busqueda = document.getElementById('buscar-cliente').value.toLowerCase();
+            const estado = document.getElementById('filtro-estado').value.toLowerCase();
 
-@app.delete("/api/pedidos/{pedido_id}")
-def eliminar_pedido(pedido_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
-    conn.commit()
-    conn.close()
-    return {"ok": True}
+            const filtrados = pedidos.filter(p => {
+                const matchCliente = (p.cliente || '').toLowerCase().includes(busqueda);
+                const matchEstado = (estado === 'todos') || (p.estado || '').toLowerCase().includes(estado);
+                return matchCliente && matchEstado;
+            });
 
-# Sirve los archivos estáticos HTML
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+            const tbody = document.getElementById('tabla-pedidos');
+            if (filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">No hay pedidos para mostrar</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtrados.map(p => `
+                <tr class="border-b">
+                    <td class="p-2">#${p.id}</td>
+                    <td class="p-2">${p.cliente}</td>
+                    <td class="p-2">Lista ${p.lista_precio || 1}</td>
+                    <td class="p-2 text-xs">${p.detalle}</td>
+                    <td class="p-2 font-bold">${p.estado || 'pendiente'}</td>
+                </tr>
+            `).join('');
+        }
+
+        cargarProductos();
+    </script>
+</body>
+</html>
