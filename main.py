@@ -21,6 +21,12 @@ class ProductoCreate(BaseModel):
     precio_3: float
     precio_4: float
 
+class PedidoCreate(BaseModel):
+    cliente: str
+    lista_precio: int
+    detalle: str
+    estado: str = "pendiente"
+
 def get_db_connection():
     conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
@@ -59,6 +65,18 @@ def obtener_pedidos():
     pedidos = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return pedidos
+
+@app.post("/api/pedidos")
+def crear_pedido(ped: PedidoCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO pedidos (cliente, lista_precio, detalle, estado)
+        VALUES (?, ?, ?, ?)
+    ''', (ped.cliente, ped.lista_precio, ped.detalle, ped.estado))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
 @app.put("/api/pedidos/{pedido_id}/estado")
 def actualizar_estado(pedido_id: int, estado_data: EstadoPedido):
