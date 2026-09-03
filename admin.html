@@ -97,8 +97,8 @@
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase">Filtrar por Estado</label>
                         <select id="filtro-estado" onchange="aplicarFiltrosPedidos()" class="w-full border p-2 rounded text-sm mt-1">
-                            <option value="todos">Todos los estados</option>
-                            <option value="pendiente" selected>Pendiente</option>
+                            <option value="todos" selected>Todos los estados</option>
+                            <option value="pendiente">Pendiente</option>
                             <option value="procesando">Procesando</option>
                             <option value="entregado">Entregado</option>
                         </select>
@@ -225,24 +225,17 @@
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
                 const clientePedido = String(p.cliente || p.comercio || '').toLowerCase().trim();
-                
-                // Si el backend no envía el estado, asumimos que es 'pendiente'
-                let estadoPedido = String(p.estado || p.estado_pedido || p.status || 'pendiente').toLowerCase().trim();
-                if (estadoPedido === 'null' || estadoPedido === 'undefined' || estadoPedido === '') {
-                    estadoPedido = 'pendiente';
-                }
+                const estadoPedido = String(p.estado || p.estado_pedido || p.status || '').toLowerCase().trim();
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
                 
-                // Si busca 'pendiente', acepta 'pendiente' o valores no definidos
+                // Si estadoFiltro es 'todos', muestra todo. Si no, compara de forma flexible o permite vacíos como pendiente.
                 let coincideEstado = (estadoFiltro === 'todos');
                 if (!coincideEstado) {
                     if (estadoFiltro === 'pendiente') {
-                        coincideEstado = (estadoPedido === 'pendiente' || estadoPedido.includes('pen'));
-                    } else if (estadoFiltro === 'procesando') {
-                        coincideEstado = (estadoPedido === 'procesando' || estadoPedido.includes('pro'));
-                    } else if (estadoFiltro === 'entregado') {
-                        coincideEstado = (estadoPedido === 'entregado' || estadoPedido.includes('ent'));
+                        coincideEstado = (estadoPedido === '' || estadoPedido === 'pendiente' || estadoPedido.includes('pen'));
+                    } else {
+                        coincideEstado = estadoPedido.includes(estadoFiltro);
                     }
                 }
 
@@ -257,20 +250,21 @@
             tbody.innerHTML = '';
 
             if (!pedidos || pedidos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos con los filtros aplicados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos.</td></tr>`;
                 return;
             }
 
             pedidos.forEach(p => {
-                let estVal = String(p.estado || p.estado_pedido || p.status || 'pendiente').toLowerCase().trim();
-                
+                const estVal = String(p.estado || p.estado_pedido || p.status || 'Pendiente').trim();
+                const estLower = estVal.toLowerCase();
+
                 let badgeColor = "bg-yellow-100 text-yellow-800";
                 let opcionSeleccionada = "Pendiente";
 
-                if (estVal.includes('pro')) {
+                if (estLower.includes('pro')) {
                     badgeColor = "bg-blue-100 text-blue-800";
                     opcionSeleccionada = "Procesando";
-                } else if (estVal.includes('ent')) {
+                } else if (estLower.includes('ent')) {
                     badgeColor = "bg-green-100 text-green-800";
                     opcionSeleccionada = "Entregado";
                 }
