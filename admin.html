@@ -8,6 +8,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
 
+    <!-- Navbar -->
     <nav class="bg-blue-700 text-white shadow-md print:hidden">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <h1 class="text-lg font-bold">Panel Administrador - Don Vitorio</h1>
@@ -15,8 +16,10 @@
         </div>
     </nav>
 
+    <!-- Contenido Principal -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
 
+        <!-- Navegación de Pestañas -->
         <div class="flex border-b border-gray-200 bg-white rounded-t-lg px-4 pt-2 space-x-2 print:hidden">
             <button id="tab-btn-productos" onclick="cambiarTab('productos')" class="py-2 px-4 font-bold text-sm border-b-2 border-blue-600 text-blue-600 focus:outline-none">
                 Gestión de Productos
@@ -26,7 +29,7 @@
             </button>
         </div>
 
-        <!-- SECCIÓN PRODUCTOS -->
+        <!-- SECCIÓN 1: GESTIÓN DE PRODUCTOS -->
         <div id="tab-productos" class="space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Cargar Nuevo Producto</h2>
@@ -40,20 +43,8 @@
                         <input type="number" id="p-stock" required min="0" class="w-full border p-2 rounded text-sm mt-1">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Precio Lista 1</label>
+                        <label class="block text-xs font-bold text-gray-700 uppercase">Precio Base</label>
                         <input type="number" step="0.01" id="p-p1" required min="0" class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Precio Lista 2</label>
-                        <input type="number" step="0.01" id="p-p2" required min="0" class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Precio Lista 3</label>
-                        <input type="number" step="0.01" id="p-p3" required min="0" class="w-full border p-2 rounded text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase">Precio Lista 4</label>
-                        <input type="number" step="0.01" id="p-p4" required min="0" class="w-full border p-2 rounded text-sm mt-1">
                     </div>
                     <div class="sm:col-span-2 md:col-span-3">
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-sm transition">Guardar Producto</button>
@@ -70,10 +61,7 @@
                                 <th class="p-3">ID</th>
                                 <th class="p-3">Producto</th>
                                 <th class="p-3">Stock</th>
-                                <th class="p-3">Lista 1</th>
-                                <th class="p-3">Lista 2</th>
-                                <th class="p-3">Lista 3</th>
-                                <th class="p-3">Lista 4</th>
+                                <th class="p-3">Precio Base</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-productos-body"></tbody>
@@ -82,7 +70,7 @@
             </div>
         </div>
 
-        <!-- SECCIÓN PEDIDOS -->
+        <!-- SECCIÓN 2: HISTORIAL Y CONTROL DE PEDIDOS -->
         <div id="tab-pedidos" class="hidden space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md space-y-4 print:hidden">
                 <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Filtros de Búsqueda</h2>
@@ -152,11 +140,6 @@
             }
         }
 
-        function extraerPrecio(p, num) {
-            const v = p[`precio_${num}`] ?? p[`precio${num}`] ?? p[`p${num}`] ?? (Array.isArray(p.precios) ? p.precios[num-1] : undefined);
-            return (v !== undefined && v !== null && !isNaN(v)) ? Number(v).toFixed(2) : '0.00';
-        }
-
         async function cargarProductosAdmin() {
             try {
                 const res = await fetch('/api/productos');
@@ -165,15 +148,16 @@
                 tbody.innerHTML = '';
                 
                 productos.forEach(p => {
+                    // Extrae el precio único o la propiedad precio
+                    const valPrecio = p.precio ?? p.precio_1 ?? p.p1 ?? 0;
+                    const precioFormat = Number(valPrecio).toFixed(2);
+
                     tbody.innerHTML += `
                         <tr class="border-b hover:bg-gray-50">
-                            <td class="p-3 font-bold">${p.id || p.id_producto || '-'}</td>
-                            <td class="p-3 font-medium">${p.nombre || p.producto || 'Sin Nombre'}</td>
+                            <td class="p-3 font-bold">${p.id}</td>
+                            <td class="p-3 font-medium">${p.nombre}</td>
                             <td class="p-3">${p.stock ?? 0}</td>
-                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 1)}</td>
-                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 2)}</td>
-                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 3)}</td>
-                            <td class="p-3 text-blue-600">$${extraerPrecio(p, 4)}</td>
+                            <td class="p-3 text-blue-600 font-bold">$${precioFormat}</td>
                         </tr>
                     `;
                 });
@@ -187,14 +171,7 @@
             const body = {
                 nombre: document.getElementById('p-nombre').value,
                 stock: parseInt(document.getElementById('p-stock').value),
-                precio_1: parseFloat(document.getElementById('p-p1').value),
-                precio_2: parseFloat(document.getElementById('p-p2').value),
-                precio_3: parseFloat(document.getElementById('p-p3').value),
-                precio_4: parseFloat(document.getElementById('p-p4').value),
-                p1: parseFloat(document.getElementById('p-p1').value),
-                p2: parseFloat(document.getElementById('p-p2').value),
-                p3: parseFloat(document.getElementById('p-p3').value),
-                p4: parseFloat(document.getElementById('p-p4').value)
+                precio: parseFloat(document.getElementById('p-p1').value)
             };
 
             try {
@@ -220,7 +197,6 @@
                 aplicarFiltrosPedidos();
             } catch(e) {
                 console.error("Error pedidos:", e);
-                document.getElementById('tabla-pedidos-body').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500 font-bold">Error de conexión al obtener pedidos.</td></tr>`;
             }
         }
 
@@ -229,8 +205,8 @@
             const estadoFiltro = String(document.getElementById('filtro-estado').value || '').toLowerCase().trim();
 
             pedidosFiltradosActuales = pedidosOriginales.filter(p => {
-                const clientePedido = String(p.cliente || p.comercio || p.nombre_cliente || '').toLowerCase().trim();
-                const estadoPedido = String(p.estado || p.estado_pedido || p.status || '').toLowerCase().trim();
+                const clientePedido = String(p.cliente || '').toLowerCase().trim();
+                const estadoPedido = String(p.estado || '').toLowerCase().trim();
 
                 const coincideCliente = clientePedido.includes(clienteFiltro);
                 
@@ -254,12 +230,12 @@
             tbody.innerHTML = '';
 
             if (!pedidos || pedidos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos registrados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">No se encontraron pedidos.</td></tr>`;
                 return;
             }
 
             pedidos.forEach(p => {
-                const estVal = String(p.estado || p.estado_pedido || p.status || 'Pendiente').trim();
+                const estVal = String(p.estado || 'pendiente').trim();
                 const estLower = estVal.toLowerCase();
 
                 let badgeColor = "bg-yellow-100 text-yellow-800";
@@ -273,26 +249,21 @@
                     opcionSeleccionada = "Entregado";
                 }
 
-                const idPedido = p.id || p.id_pedido || '-';
-                const clientePedido = p.cliente || p.comercio || p.nombre_cliente || 'Cliente';
-                const listaPrecio = p.lista_precio || p.lista || p.num_lista || 1;
-                const detallePedido = p.detalle || p.items || p.productos || '';
-
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="p-3 font-bold">#${idPedido}</td>
-                        <td class="p-3 font-medium">${clientePedido}</td>
-                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${listaPrecio}</td>
-                        <td class="p-3 text-xs text-gray-600">${detallePedido}</td>
+                        <td class="p-3 font-bold">#${p.id}</td>
+                        <td class="p-3 font-medium">${p.cliente || 'Cliente'}</td>
+                        <td class="p-3 text-xs bg-gray-100 rounded text-center font-bold">Lista #${p.lista_precio || 1}</td>
+                        <td class="p-3 text-xs text-gray-600">${p.detalle || ''}</td>
                         <td class="p-3">
-                            <select onchange="actualizarEstado(${idPedido}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
+                            <select onchange="actualizarEstado(${p.id}, this.value)" class="text-xs border p-1 rounded font-bold ${badgeColor}">
                                 <option value="Pendiente" ${opcionSeleccionada === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                                 <option value="Procesando" ${opcionSeleccionada === 'Procesando' ? 'selected' : ''}>Procesando</option>
                                 <option value="Entregado" ${opcionSeleccionada === 'Entregado' ? 'selected' : ''}>Entregado</option>
                             </select>
                         </td>
                         <td class="p-3 print:hidden">
-                            <button onclick="eliminarPedido(${idPedido})" class="text-red-600 hover:underline text-xs font-bold">Eliminar</button>
+                            <button onclick="eliminarPedido(${p.id})" class="text-red-600 hover:underline text-xs font-bold">Eliminar</button>
                         </td>
                     </tr>
                 `;
@@ -323,7 +294,7 @@
         }
 
         function exportarExcel() {
-            if (!pedidosFiltradosActuales.length) return alert("No hay datos");
+            if (!pedidosFiltradosActuales.length) return alert("No hay pedidos");
             let csv = "data:text/csv;charset=utf-8,ID,Cliente,Lista,Detalle,Estado\n";
             pedidosFiltradosActuales.forEach(p => {
                 csv += `${p.id},"${p.cliente || ''}",Lista ${p.lista_precio || 1},"${(p.detalle || '').replace(/"/g, '""')}",${p.estado || 'Pendiente'}\n`;
