@@ -35,6 +35,12 @@ class StockUpdate(BaseModel):
 class EstadoUpdate(BaseModel):
     estado: str
 
+class PedidoCreate(BaseModel):
+    cliente_nombre: str
+    detalle: str
+    lista_precio: str
+    estado: str = "Pendiente"
+
 @app.get("/api/productos")
 def listar_productos():
     conn = get_db_connection()
@@ -82,7 +88,6 @@ def actualizar_stock(producto_id: int, stock_data: StockUpdate):
 def listar_pedidos():
     conn = get_db_connection()
     cur = conn.cursor()
-    # Usamos COALESCE para priorizar el nombre del cliente de la tabla relacional o el campo cliente_nombre
     cur.execute("""
         SELECT pedidos.*, COALESCE(clientes.nombre, pedidos.cliente_nombre, 'Cliente General') AS cliente 
         FROM pedidos 
@@ -93,6 +98,26 @@ def listar_pedidos():
     cur.close()
     conn.close()
     return pedidos
+
+@app.post("/api/pedidos")
+def crear_pedido(pedido: PedidoCreate):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO pedidos (cliente_nombre, detalle, lista_precio, estado) 
+            VALUES (%s, %s, %s, %s) RETURNING id
+            """,
+            (pedido.cliente_nombre, pedido.detalle, str(pedido.lista_precio), pedido.estado)
+        )
+        nuevo_id = cur.fetchone()["id"]
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"id": nuevo_id, "mensaje": "Pedido creado con éxito"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/pedidos/{pedido_id}/estado")
 def actualizar_estado_pedido(pedido_id: int, estado_data: EstadoUpdate):
