@@ -6,12 +6,10 @@ from typing import Optional
 import sqlite3
 from init_db import init_db
 
-# Inicializar Base de Datos
 init_db()
 
 app = FastAPI()
 
-# Permitir peticiones (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,9 +18,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Modelos de datos
+# Modelos
 class EstadoPedido(BaseModel):
     estado: str
+
+class StockProducto(BaseModel):
+    stock: int
 
 class ProductoCreate(BaseModel):
     nombre: str
@@ -43,7 +44,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- ENDPOINTS PRODUCTOS ---
+# --- PRODUCTOS ---
 
 @app.get("/api/productos")
 def obtener_productos():
@@ -66,7 +67,16 @@ def crear_producto(prod: ProductoCreate):
     conn.close()
     return {"ok": True}
 
-# --- ENDPOINTS PEDIDOS ---
+@app.put("/api/productos/{producto_id}/stock")
+def actualizar_stock(producto_id: int, stock_data: StockProducto):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE productos SET stock = ? WHERE id = ?", (stock_data.stock, producto_id))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+# --- PEDIDOS ---
 
 @app.get("/api/pedidos")
 def obtener_pedidos():
@@ -107,5 +117,4 @@ def eliminar_pedido(pedido_id: int):
     conn.close()
     return {"ok": True}
 
-# Servir index.html y otros archivos de la raíz
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
